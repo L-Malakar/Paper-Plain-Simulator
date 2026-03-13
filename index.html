@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Paper Plane | Infinite Protocol</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding-right: 10%;
+            pointer-events: none;
+            z-index: 10;
+            transition: opacity 0.5s;
+        }
+        .menu-card {
+            pointer-events: auto;
+            text-align: center;
+            color: white;
+        }
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ff41;
+            font-size: 1.5rem;
+            display: none;
+            text-shadow: 0 0 10px #00ff41;
+        }
+        #game-over-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #ff0000;
+            display: none;
+            z-index: 20;
+        }
+        button {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            background: transparent;
+            color: #00ff41;
+            border: 2px solid #00ff41;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: 0.3s;
+        }
+        button:hover {
+            background: #00ff41;
+            color: #000;
+            box-shadow: 0 0 20px #00ff41;
+        }
+        .btn-restart { color: #ff0000; border-color: #ff0000; }
+        .btn-restart:hover { background: #ff0000; color: #fff; box-shadow: 0 0 20px #ff0000; }
+        .hidden { opacity: 0; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="hud">DISTANCE: <span id="scoreVal">0</span>m</div>
+    
+    <div id="game-over-screen">
+        <h1 style="font-size: 4rem; margin-bottom: 0;">CRASHED</h1>
+        <p style="margin-bottom: 2rem;">PROTOCOL TERMINATED</p>
+        <button class="btn-restart" onclick="location.reload()">REBOOT</button>
+    </div>
+
+    <div id="ui-layer">
+        <div class="menu-card" id="menu">
+            <h1 style="font-size: 3rem; margin-bottom: 0;">PAPER PLANE</h1>
+            <p style="color: #888; margin-bottom: 2rem;">INFINITE PROTOCOL</p>
+            <button id="playBtn">LAUNCH</button>
+            <p style="font-size: 0.8rem; color: #555; margin-top: 1rem;">[A/D] Move World | [E] Random Style | [R] Auto-Pulse</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.136.0/build/three.module.js';
+
+        // --- SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050505);
+        
+        // ADJUSTED FOG: Start closer and end sooner to hide the generation edge
+        scene.fog = new THREE.Fog(0x050505, 5, 45);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // --- STATE ---
+        let gameState = 'MENU';
+        let score = 0;
+        let autoPulseActive = false;
+        let lastPulseTime = 0;
+        const worldSpeed = 0.25;
+        const chunks = [];
+        const obstacles = [];
+        const chunkSize = 40;
+
+        // --- LIGHTING ---
+        const ambientLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(5, 10, 7.5);
+        scene.add(directionalLight);
+
+        // --- THE PLANE ---
+        const playerGroup = new THREE.Group();
+        const paperMat = new THREE.MeshStandardMaterial({ color: 0xe0e0e0, side: THREE.DoubleSide, flatShading: true });
+        
+        const vertices = new Float32Array([
+            0, 0, 0.8, -0.8, 0.2, -0.4, 0, 0, -0.2,     
+            0, 0, 0.8, 0.8, 0.2, -0.4, 0, 0, -0.2,     
+            0, 0, 0.8, 0, -0.3, -0.2, 0, 0, -0.2,      
+            0, 0, -0.2, -0.3, 0.0, -0.5, 0, 0.1, -0.3,
+            0, 0, -0.2, 0.3, 0.0, -0.5, 0, 0.1, -0.3
+        ]);
+        const indices = [0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11, 12, 14, 13];
+        const planeGeo = new THREE.BufferGeometry();
+        planeGeo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        planeGeo.setIndex(indices);
+        planeGeo.computeVertexNormals();
+
+        const planeMesh = new THREE.Mesh(planeGeo, paperMat);
+        planeMesh.rotation.y = Math.PI; 
+        playerGroup.add(planeMesh);
+        playerGroup.position.set(-5, 3, 0);
+        scene.add(playerGroup);
+
+        // --- CUSTOM FUNCTIONS ---
+        function randomizeStyle() {
+            const randomColor = Math.random() * 0xffffff;
+            paperMat.color.setHex(randomColor);
+            paperMat.emissive.setHex(randomColor);
+            paperMat.emissiveIntensity = 0.2;
+        }
+
+        // --- WORLD GENERATION ---
+        function createChunk(zOffset) {
+            const group = new THREE.Group();
+            
+            const chunkObstaclesData = [];
+            for(let i=0; i<3; i++) {
+                chunkObstaclesData.push({
+                    h: Math.random() * 8 + 2,
+                    xRel: Math.random() * 20 - 10,
+                    zRel: (Math.random() * chunkSize - chunkSize/2)
+                });
+            }
+
+            // WIDENED GRID: Added more X-indexes to cover the view even during hard turns
+            for(let xIdx = -3; xIdx <= 3; xIdx++) {
+                const grid = new THREE.GridHelper(chunkSize, 20, 0x00ff41, 0x111111);
+                grid.position.x = xIdx * chunkSize;
+                group.add(grid);
+
+                // Only put obstacles in the central lanes to keep the path challenging but fair
+                if(xIdx >= -1 && xIdx <= 1) {
+                    chunkObstaclesData.forEach(data => {
+                        const obsGeo = new THREE.BoxGeometry(1.2, data.h, 1.2);
+                        const obsMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.5 });
+                        const mesh = new THREE.Mesh(obsGeo, obsMat);
+                        
+                        mesh.position.set(
+                            (xIdx * chunkSize) + data.xRel, 
+                            data.h/2 - 0.5, 
+                            data.zRel
+                        );
+                        group.add(mesh);
+                        obstacles.push(mesh);
+                    });
+                }
+            }
+
+            group.position.z = zOffset;
+            scene.add(group);
+            return group;
+        }
+
+        // Generate more chunks to push the "edge" further back into the fog
+        for(let i=0; i<8; i++) chunks.push(createChunk(-i * chunkSize));
+
+        // --- INPUT & CONTROLS ---
+        const keys = { a: false, d: false };
+        let worldShiftX = 0; 
+        const moveSpeed = 0.22; 
+
+        document.addEventListener('keydown', (e) => { 
+            const k = e.key.toLowerCase();
+            if(k in keys) keys[k] = true;
+            if(k === 'e') randomizeStyle(); 
+            if(k === 'r') autoPulseActive = !autoPulseActive; 
+        });
+        document.addEventListener('keyup', (e) => { if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false; });
+
+        const playBtn = document.getElementById('playBtn');
+        const menuUI = document.getElementById('menu');
+        const hud = document.getElementById('hud');
+        const scoreVal = document.getElementById('scoreVal');
+        const gameOverUI = document.getElementById('game-over-screen');
+
+        playBtn.addEventListener('click', () => {
+            gameState = 'TRANSITION';
+            menuUI.parentElement.classList.add('hidden');
+            hud.style.display = 'block';
+        });
+
+        // --- COLLISION DETECTION ---
+        function checkCollisions() {
+            const planeBox = new THREE.Box3().setFromObject(playerGroup);
+            
+            for (let obs of obstacles) {
+                const obsBox = new THREE.Box3().setFromObject(obs);
+                if (planeBox.intersectsBox(obsBox)) {
+                    gameState = 'GAMEOVER';
+                    gameOverUI.style.display = 'block';
+                    hud.style.display = 'none';
+                }
+            }
+        }
+
+        // --- GAME LOOP ---
+        const clock = new THREE.Clock();
+        let lerpFactor = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (gameState === 'GAMEOVER') return;
+
+            const delta = clock.getDelta();
+            const t = clock.getElapsedTime();
+
+            if (autoPulseActive && t - lastPulseTime > 1.0) {
+                randomizeStyle();
+                lastPulseTime = t;
+            }
+
+            // World Wrapping Logic
+            if (worldShiftX > chunkSize) worldShiftX -= chunkSize;
+            if (worldShiftX < -chunkSize) worldShiftX += chunkSize;
+
+            chunks.forEach((chunk) => {
+                chunk.position.z += worldSpeed;
+                chunk.position.x = worldShiftX; 
+                if (chunk.position.z > chunkSize) {
+                    chunk.position.z -= chunkSize * chunks.length;
+                }
+            });
+
+            if (gameState === 'MENU') {
+                camera.position.lerp(new THREE.Vector3(2, 4, 8), 0.05);
+                camera.lookAt(playerGroup.position);
+                planeMesh.rotation.z = Math.sin(t * 2) * 0.1;
+            } 
+            else if (gameState === 'TRANSITION') {
+                lerpFactor += 0.015;
+                playerGroup.position.x = THREE.MathUtils.lerp(-5, 0, lerpFactor);
+                camera.position.lerp(new THREE.Vector3(0, 4.5, 5), 0.05);
+                camera.lookAt(playerGroup.position);
+                if (lerpFactor >= 1) gameState = 'PLAYING';
+            } 
+            else if (gameState === 'PLAYING') {
+                score += worldSpeed * 0.1;
+                scoreVal.innerText = Math.floor(score);
+
+                if (keys.a) worldShiftX += moveSpeed;
+                if (keys.d) worldShiftX -= moveSpeed;
+
+                const targetBank = (keys.a ? 0.6 : keys.d ? -0.6 : 0);
+                playerGroup.rotation.z = THREE.MathUtils.lerp(playerGroup.rotation.z, targetBank, 0.1);
+                planeMesh.rotation.z = Math.sin(t * 5) * 0.05;
+
+                camera.position.set(0, 4.5, 5);
+                camera.lookAt(0, 3, -2);
+
+                checkCollisions();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
