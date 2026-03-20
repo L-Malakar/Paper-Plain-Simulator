@@ -6,30 +6,126 @@
     <title>3D Paper Plane | Infinite Protocol</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: flex-end; align-items: center; padding-right: 10%; pointer-events: none; z-index: 10; transition: opacity 0.5s; }
-        .menu-card { pointer-events: auto; text-align: center; color: white; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; transition: opacity 0.5s; }
+        
+        #header-container, .game-over-header {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            width: 100%;
+        }
+        .game-title, .crash-title {
+            font-size: 4.5rem;
+            margin: 0;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            text-shadow: 0 0 20px #00ff41, 0 0 40px #00ff41;
+            font-weight: 900;
+            font-style: italic;
+        }
+        .crash-title {
+            color: #ff0000;
+            text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000;
+        }
+        .game-subtitle, .crash-subtitle {
+            font-size: 1.5rem;
+            color: #888;
+            margin-top: 5px;
+            letter-spacing: 2px;
+        }
+
+        .menu-card, .game-over-card { 
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: auto; 
+            text-align: center; 
+            color: white; 
+            width: 100%;
+        }
+        
+        #menu {
+            left: auto;
+            right: 5%;
+            transform: translateY(0);
+            width: auto;
+        }
+
         #hud { position: absolute; top: 20px; left: 20px; color: #00ff41; font-size: 1.5rem; display: none; text-shadow: 0 0 10px #00ff41; }
-        #game-over-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #ff0000; display: none; z-index: 20; }
-        button { padding: 15px 40px; font-size: 1.5rem; background: transparent; color: #00ff41; border: 2px solid #00ff41; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: 0.3s; pointer-events: auto; }
-        button:hover { background: #00ff41; color: #000; box-shadow: 0 0 20px #00ff41; }
+        
+        #game-over-screen { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            display: none; 
+            z-index: 20; 
+            pointer-events: none;
+        }
+        
+        button { 
+            padding: 15px 60px; 
+            font-size: 2rem; 
+            background: transparent; 
+            color: #00ff41; 
+            border: 2px solid #00ff41; 
+            border-radius: 20px; 
+            cursor: pointer; 
+            text-transform: uppercase; 
+            letter-spacing: 4px; 
+            transition: 0.3s; 
+            pointer-events: auto; 
+        }
+        button:hover { background: #00ff41; color: #000; box-shadow: 0 0 30px #00ff41; }
+        
         .btn-restart { color: #ff0000; border-color: #ff0000; }
         .btn-restart:hover { background: #ff0000; color: #fff; box-shadow: 0 0 20px #ff0000; }
         .hidden { opacity: 0; pointer-events: none; }
+
+        @media (max-width: 768px) {
+            .game-title, .crash-title { font-size: 2.5rem; letter-spacing: 4px; }
+            .game-subtitle, .crash-subtitle { font-size: 1rem; }
+            #menu {
+                right: 50%;
+                transform: translateX(50%);
+                bottom: 8%;
+            }
+            .game-over-card {
+                bottom: 8%;
+            }
+            button {
+                padding: 12px 40px;
+                font-size: 1.5rem;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="hud">DISTANCE: <span id="scoreVal">0</span>m</div>
+
     <div id="game-over-screen">
-        <h1 style="font-size: 4rem; margin-bottom: 0;">CRASHED</h1>
-        <p style="margin-bottom: 2rem;">PROTOCOL TERMINATED</p>
-        <button class="btn-restart" id="rebootBtn">REBOOT</button>
+        <div class="game-over-header">
+            <h1 class="crash-title">CRASHED</h1>
+            <div class="crash-subtitle">By L.Malakar</div>
+        </div>
+        <div class="game-over-card">
+            <button class="btn-restart" id="rebootBtn">RETRY</button>
+        </div>
     </div>
+
     <div id="ui-layer">
+        <div id="header-container">
+            <h1 class="game-title">PAPER PLANE</h1>
+            <div class="game-subtitle">Simulator 3D</div>
+        </div>
         <div class="menu-card" id="menu">
-            <h1 style="font-size: 3rem; margin-bottom: 0;">PAPER PLANE</h1>
-            <p style="color: #888; margin-bottom: 2rem;">INFINITE PROTOCOL</p>
-            <button id="playBtn">LAUNCH</button>
-            <p id="controls-hint" style="font-size: 0.8rem; color: #555; margin-top: 1rem;">[W/S] Altitude | [A/D] Move World</p>
+            <button id="playBtn">PLAY</button>
+            <p id="controls-hint" style="font-size: 1rem; color: #aaa; margin-top: 1.5rem; letter-spacing: 1px;">use [W/A/S/D] to move plain</p>
         </div>
     </div>
 
@@ -42,7 +138,7 @@
 
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const activeController = isMobile ? MController : Controller;
-        if (isMobile) document.getElementById('controls-hint').innerText = "Touch Bottom-Left to Spawn Joystick";
+        if (isMobile) document.getElementById('controls-hint').innerText = "use Joystick to play";
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x050505);
@@ -71,15 +167,16 @@
 
         const playBtn = document.getElementById('playBtn');
         const rebootBtn = document.getElementById('rebootBtn');
-        const menuUI = document.getElementById('menu');
+        const menuUI = document.getElementById('ui-layer');
         const hud = document.getElementById('hud');
         const scoreVal = document.getElementById('scoreVal');
         const gameOverUI = document.getElementById('game-over-screen');
 
         playBtn.addEventListener('click', () => {
+            if (gameState !== 'MENU') return;
             if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
             gameState = 'TRANSITION';
-            menuUI.parentElement.classList.add('hidden');
+            menuUI.classList.add('hidden');
             hud.style.display = 'block';
             if (isMobile && MController.showJoystick) MController.showJoystick();
         });
@@ -101,12 +198,12 @@
             world = new WorldManager(scene);
 
             gameOverUI.style.display = 'none';
-            menuUI.parentElement.classList.remove('hidden');
+            menuUI.classList.remove('hidden');
             hud.style.display = 'none';
         });
 
         function checkCollisions() {
-            const planeBox = new THREE.Box3().setFromObject(player.group);
+            const planeBox = new THREE.Box3().setFromObject(player.hitbox);
             for (let obs of world.obstacles) {
                 const obsBox = new THREE.Box3().setFromObject(obs);
                 if (planeBox.intersectsBox(obsBox)) return true;
@@ -137,7 +234,7 @@
                 if (lerpFactor >= 1) gameState = 'PLAYING';
             } 
             else if (gameState === 'PLAYING') {
-                dynamicWorldSpeed = 0.25 + (score * 0.0005);
+                dynamicWorldSpeed = Math.min(0.25 + (score * 0.0005), 0.8);
                 score += dynamicWorldSpeed * 0.1;
                 scoreVal.innerText = Math.floor(score);
 
