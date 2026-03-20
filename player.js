@@ -21,6 +21,14 @@ export class Player {
         this.mesh = new THREE.Mesh(planeGeo, this.paperMat);
         this.mesh.rotation.y = Math.PI; 
         this.group.add(this.mesh);
+
+        // --- HURT BOX (HITBOX) ---
+        // Creating a smaller, invisible box for collision detection
+        const hitboxGeo = new THREE.BoxGeometry(0.4, 0.2, 0.6); 
+        const hitboxMat = new THREE.MeshBasicMaterial({ visible: false }); 
+        this.hitbox = new THREE.Mesh(hitboxGeo, hitboxMat);
+        this.group.add(this.hitbox);
+
         this.group.position.set(-5, 3, 0);
         scene.add(this.group);
     }
