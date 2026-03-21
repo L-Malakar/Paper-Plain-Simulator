@@ -56,6 +56,7 @@
         }
 
         #hud { position: absolute; top: 20px; left: 20px; color: #00ff41; font-size: 1.5rem; display: none; text-shadow: 0 0 10px #00ff41; }
+        #high-score-hud { font-size: 0.9rem; color: #008822; margin-top: 5px; }
         
         #game-over-screen { 
             position: absolute; 
@@ -106,7 +107,10 @@
     </style>
 </head>
 <body>
-    <div id="hud">DISTANCE: <span id="scoreVal">0</span>m</div>
+    <div id="hud">
+        DISTANCE: <span id="scoreVal">0</span>m
+        <div id="high-score-hud">BEST: <span id="bestVal">0</span>m</div>
+    </div>
 
     <div id="game-over-screen">
         <div class="game-over-header">
@@ -155,6 +159,8 @@
         let score = 0;
         let worldShiftX = 0;
         let dynamicWorldSpeed = 0.25;
+        let highScore = localStorage.getItem('paperPlane_highScore') || 0;
+        document.getElementById('bestVal').innerText = Math.floor(highScore);
 
         const ambientLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5);
         scene.add(ambientLight);
@@ -204,7 +210,12 @@
 
         function checkCollisions() {
             const planeBox = new THREE.Box3().setFromObject(player.hitbox);
+            const tempVec = new THREE.Vector3();
             for (let obs of world.obstacles) {
+                // PERFORMANCE FIX: Only check objects near the player's Z position (0)
+                obs.getWorldPosition(tempVec);
+                if (Math.abs(tempVec.z) > 3) continue;
+                
                 const obsBox = new THREE.Box3().setFromObject(obs);
                 if (planeBox.intersectsBox(obsBox)) return true;
             }
@@ -218,6 +229,7 @@
             requestAnimationFrame(animate);
             if (gameState === 'GAMEOVER') return;
 
+            const delta = clock.getDelta();
             const t = clock.getElapsedTime();
             world.update(dynamicWorldSpeed, worldShiftX);
 
@@ -238,7 +250,8 @@
                 score += dynamicWorldSpeed * 0.1;
                 scoreVal.innerText = Math.floor(score);
 
-                const ctrl = activeController.update(player.group, worldShiftX);
+                // Pass delta to controllers for frame-independent movement
+                const ctrl = activeController.update(player.group, worldShiftX, delta);
                 worldShiftX = ctrl.worldShiftX;
 
                 player.updateFlightAnimation(t, ctrl);
@@ -247,12 +260,29 @@
                 camera.lookAt(0, player.group.position.y, -2);
 
                 if (ctrl.isCrashed || ctrl.isGroundHit || checkCollisions()) {
-                    gameState = 'GAMEOVER';
-                    gameOverUI.style.display = 'block';
-                    hud.style.display = 'none';
+                    gameState = 'CRASHING'; // Transition to crash animation
                     if (isMobile) MController.disable();
                 }
             }
+            else if (gameState === 'CRASHING') {
+                player.updateCrashAnimation(delta);
+
+                // Make the camera follow the falling paper ball
+                camera.position.set(0, player.group.position.y + 1.5, 5);
+                camera.lookAt(0, player.group.position.y, -2);
+
+                // Wait until the ball hits the ground to show the Game Over screen
+                if (player.group.position.y <= 0 && gameOverUI.style.display !== 'block') {
+                    if (score > highScore) {
+                        highScore = score;
+                        localStorage.setItem('paperPlane_highScore', highScore);
+                        document.getElementById('bestVal').innerText = Math.floor(highScore);
+                    }
+                    gameOverUI.style.display = 'block';
+                    hud.style.display = 'none';
+                }
+            }
+            
             renderer.render(scene, camera);
         }
 
