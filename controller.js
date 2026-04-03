@@ -18,8 +18,14 @@ export const Controller = {
         verticalSpeed: 0.1,  // Speed of plane climbing/diving (W/S)
         maxHeight: 6,        // Reduced Ceiling limit to prevent escaping pillars
         minHeight: 0,         // Ground level
+        // FIX 5: Minimum height enforced during ghost/glitch mode so the plane
+        // cannot fly below ground level even when invincible.
+        ghostMinHeight: 0.5,
         chunkSize: 40         // Used for world wrapping
     },
+
+    // FIX 5: Set by the game loop when ghost mode is active
+    isGhostMode: false,
 
     // --- INITIALIZATION ---
     init() {
@@ -35,12 +41,13 @@ export const Controller = {
     },
 
     // --- MOVEMENT LOGIC ---
-    update(playerGroup, currentWorldShiftX) {
+    update(playerGroup, currentWorldShiftX, delta) {
         let nextWorldShiftX = currentWorldShiftX;
+        const scale = delta * 60; // Normalise to 60fps so speed is frame-rate independent
 
         // 1. Horizontal Movement (Shifting the world via A/D)
-        if (this.keys.a) nextWorldShiftX += this.config.moveSpeed;
-        if (this.keys.d) nextWorldShiftX -= this.config.moveSpeed;
+        if (this.keys.a) nextWorldShiftX += this.config.moveSpeed * scale;
+        if (this.keys.d) nextWorldShiftX -= this.config.moveSpeed * scale;
 
         // World Wrapping Logic
         if (nextWorldShiftX > this.config.chunkSize) nextWorldShiftX -= this.config.chunkSize;
@@ -48,14 +55,24 @@ export const Controller = {
 
         // 2. Vertical Movement (Moving the plane via W/S)
         if (this.keys.w && playerGroup.position.y < this.config.maxHeight) {
-            playerGroup.position.y += this.config.verticalSpeed;
+            playerGroup.position.y += this.config.verticalSpeed * scale;
         }
         if (this.keys.s) {
-            playerGroup.position.y -= this.config.verticalSpeed;
+            playerGroup.position.y -= this.config.verticalSpeed * scale;
         }
 
-        // 3. Ground Touch Detection
-        const isCrashed = playerGroup.position.y <= this.config.minHeight;
+        // FIX 5: Enforce floor barrier during ghost mode — player cannot go
+        // below ghostMinHeight while invincible, preventing ground clipping.
+        const floorLimit = this.isGhostMode
+            ? this.config.ghostMinHeight
+            : this.config.minHeight;
+
+        if (playerGroup.position.y < floorLimit) {
+            playerGroup.position.y = floorLimit;
+        }
+
+        // 3. Ground Touch Detection (only triggers a crash outside ghost mode)
+        const isCrashed = !this.isGhostMode && playerGroup.position.y <= this.config.minHeight;
 
         // 4. Calculate Visual Rotations (Banking and Pitching)
         const targetBank = (this.keys.a ? 0.6 : this.keys.d ? -0.6 : 0);
