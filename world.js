@@ -1,11 +1,13 @@
 import * as THREE from 'https://unpkg.com/three@0.136.0/build/three.module.js';
 
 export class WorldManager {
-    constructor(scene) {
+    // Add isMobile argument for specific optimizations
+    constructor(scene, isMobile = false) {
         this.scene = scene;
         this.chunks = [];
         this.obstacles = [];
         this.chunkSize = 40;
+        this.isMobile = isMobile;
 
         for (let i = 0; i < 8; i++) {
             this.chunks.push(this.createChunk(-i * this.chunkSize));
@@ -16,8 +18,8 @@ export class WorldManager {
         const group = new THREE.Group();
         const chunkObstaclesData = [];
         
-        // Increased count to fill the wider spawn area
-        const obstacleCount = 10; 
+        // MOBILE OPTIMIZATION: Halve the number of objects drawn per chunk
+        const obstacleCount = this.isMobile ? 5 : 10; 
 
         for (let i = 0; i < obstacleCount; i++) {
             const rand = Math.random();
@@ -29,8 +31,6 @@ export class WorldManager {
             chunkObstaclesData.push({
                 category: category,
                 type: Math.floor(Math.random() * 10),
-                // FIX: Spread obstacles across the FULL width of the tile (40 units)
-                // instead of just the center 24 units.
                 xRel: Math.random() * this.chunkSize - (this.chunkSize / 2),
                 zRel: (Math.random() * this.chunkSize - this.chunkSize / 2),
                 yRel: Math.random() * 5 + 0.5,
@@ -94,10 +94,10 @@ export class WorldManager {
         return mesh;
     }
 
-    update(speed, worldShiftX) {
+    update(speed, worldShiftX, elapsed) {
         this.chunks.forEach((chunk) => {
             chunk.position.z += speed;
-            chunk.position.x = ((worldShiftX % this.chunkSize) + this.chunkSize) % this.chunkSize;
+            chunk.position.x = worldShiftX;
 
             chunk.children.forEach(child => {
                 if (child.type === "Mesh" && child.userData.category) {
@@ -106,9 +106,9 @@ export class WorldManager {
                     child.rotation.z += 0.01;
 
                     if (ud.category === "moving") {
-                        child.position.x = ud.baseX + Math.sin(Date.now() * 0.002 + ud.phase) * 5;
+                        child.position.x = ud.baseX + Math.sin(elapsed * 2 + ud.phase) * 5;
                     } else if (ud.category === "hard") {
-                        child.position.y = ud.baseY + Math.cos(Date.now() * 0.003 + ud.phase) * 2;
+                        child.position.y = ud.baseY + Math.cos(elapsed * 3 + ud.phase) * 2;
                     } else if (ud.category === "impossible") {
                         child.rotation.x += 0.05;
                     }
