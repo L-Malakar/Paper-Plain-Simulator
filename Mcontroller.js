@@ -15,8 +15,14 @@ export const MController = {
         verticalSpeed: 0.1,
         maxHeight: 6, // Reduced Ceiling limit
         minHeight: 0,
+        // FIX 5: Minimum height enforced during ghost/glitch mode so the plane
+        // cannot fly below ground level even while invincible.
+        ghostMinHeight: 0.5,
         chunkSize: 40
     },
+
+    // FIX 5: Set by the game loop when ghost mode is active
+    isGhostMode: false,
 
     // --- INITIALIZATION ---
     init() {
@@ -26,6 +32,9 @@ export const MController = {
     showJoystick() {
         const container = document.getElementById('joystick-container');
         container.style.display = 'block';
+
+        if (this._listenersAdded) return;
+        this._listenersAdded = true;
 
         const pad = document.getElementById('joystick-pad');
         const knob = document.getElementById('joystick-knob');
@@ -111,20 +120,22 @@ export const MController = {
 
     reset() {
         this.enabled = true;
+        this.isGhostMode = false;
         this.joystickActive = false;
         this.input = { x: 0, y: 0 };
     },
 
-    update(playerGroup, currentWorldShiftX) {
+    update(playerGroup, currentWorldShiftX, delta) {
         if (!this.enabled) return { worldShiftX: currentWorldShiftX, isGroundHit: false, targetBank: 0, targetPitch: 0 };
 
+        const scale = delta * 60; // Normalise to 60fps so speed is frame-rate independent
         let nextWorldShiftX = currentWorldShiftX;
-        nextWorldShiftX -= this.input.x * this.config.moveSpeed;
+        nextWorldShiftX -= this.input.x * this.config.moveSpeed * scale;
 
         if (nextWorldShiftX > this.config.chunkSize) nextWorldShiftX -= this.config.chunkSize;
         if (nextWorldShiftX < -this.config.chunkSize) nextWorldShiftX += this.config.chunkSize;
 
-        const verticalMove = -this.input.y * this.config.verticalSpeed;
+        const verticalMove = -this.input.y * this.config.verticalSpeed * scale;
         
         if (verticalMove > 0 && playerGroup.position.y < this.config.maxHeight) {
             playerGroup.position.y += verticalMove;
@@ -132,7 +143,18 @@ export const MController = {
             playerGroup.position.y += verticalMove;
         }
 
-        const isCrashed = playerGroup.position.y <= this.config.minHeight;
+        // FIX 5: Enforce floor barrier during ghost mode — player cannot go
+        // below ghostMinHeight while invincible, preventing ground clipping.
+        const floorLimit = this.isGhostMode
+            ? this.config.ghostMinHeight
+            : this.config.minHeight;
+
+        if (playerGroup.position.y < floorLimit) {
+            playerGroup.position.y = floorLimit;
+        }
+
+        // Only trigger a crash when NOT in ghost mode
+        const isCrashed = !this.isGhostMode && playerGroup.position.y <= this.config.minHeight;
         if (isCrashed) this.disable();
 
         return {
