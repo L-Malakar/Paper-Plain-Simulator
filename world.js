@@ -1,7 +1,6 @@
 import * as THREE from 'https://unpkg.com/three@0.136.0/build/three.module.js';
 
 export class WorldManager {
-    // Add isMobile argument for specific optimizations
     constructor(scene, isMobile = false) {
         this.scene = scene;
         this.chunks = [];
@@ -18,9 +17,9 @@ export class WorldManager {
         const group = new THREE.Group();
         const chunkObstaclesData = [];
         
-        // MOBILE OPTIMIZATION: Halve the number of objects drawn per chunk
         const obstacleCount = this.isMobile ? 5 : 10; 
 
+        // Spawn ONLY Obstacles (Coins moved to collectable.js)
         for (let i = 0; i < obstacleCount; i++) {
             const rand = Math.random();
             let category = "basic";
@@ -65,13 +64,10 @@ export class WorldManager {
     createObstacleMesh(data, xIdx) {
         let geo;
         let mesh;
+        
         const obsMat = new THREE.MeshStandardMaterial({ 
-            color: data.color, 
-            emissive: data.color, 
-            emissiveIntensity: 0.5,
-            flatShading: true 
+            color: data.color, emissive: data.color, emissiveIntensity: 0.5, flatShading: true 
         });
-
         switch (data.type) {
             case 0: geo = new THREE.BoxGeometry(1.2, 12, 1.2); break;
             case 1: geo = new THREE.SphereGeometry(1.2, 8, 8); break;
@@ -81,8 +77,8 @@ export class WorldManager {
             case 5: geo = new THREE.ConeGeometry(1.5, 4, 8); break;
             default: geo = new THREE.BoxGeometry(2, 2, 2); break;
         }
-
         mesh = new THREE.Mesh(geo, obsMat);
+
         mesh.userData = {
             category: data.category,
             phase: data.phase,
@@ -102,6 +98,7 @@ export class WorldManager {
             chunk.children.forEach(child => {
                 if (child.type === "Mesh" && child.userData.category) {
                     const ud = child.userData;
+                    
                     child.rotation.y += 0.02;
                     child.rotation.z += 0.01;
 
