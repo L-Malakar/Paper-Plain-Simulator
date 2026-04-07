@@ -7,7 +7,6 @@
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
         
-        /* ── Core UI Layers ── */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; transition: opacity 0.5s; }
         
         #header-container, .game-over-header {
@@ -59,7 +58,10 @@
 
         #hud { position: absolute; top: 20px; left: 20px; color: #00ff41; font-size: 1.5rem; display: none; text-shadow: 0 0 10px #00ff41; pointer-events: none; }
         #high-score-hud { font-size: 0.9rem; color: #008822; margin-top: 5px; }
+        .coin-display { color: #ffd700; text-shadow: 0 0 10px #ffd700; font-weight: bold; }
         
+        #menu-coins { position: absolute; top: 20px; left: 20px; font-size: 2rem; z-index: 11; pointer-events: none; }
+
         #game-over-screen { 
             position: absolute; 
             top: 0; 
@@ -71,7 +73,6 @@
             pointer-events: none;
         }
         
-        /* ── Buttons & Icons ── */
         button { 
             padding: 15px 60px; 
             font-size: 2rem; 
@@ -90,17 +91,18 @@
         .btn-restart { color: #ff0000; border-color: #ff0000; }
         .btn-restart:hover { background: #ff0000; color: #fff; box-shadow: 0 0 20px #ff0000; }
         
+        .arrow-btn { padding: 10px; border: none; font-size: 2.5rem; color: #00ff41; min-width: 60px; }
+        .arrow-btn:hover { background: transparent; color: #fff; box-shadow: none; transform: scale(1.2); }
+
         .icon-btn { width: 50px; cursor: pointer; transition: transform 0.2s; pointer-events: auto; }
         .icon-btn:hover { transform: scale(1.1); }
 
         .icon-white { filter: invert(1) brightness(2); }
 
-        /* Settings & Pause Placements */
         #settings-btn-desktop { position: absolute; top: 20px; right: 20px; z-index: 11; }
         #settings-btn-mobile { display: none; }
         #pause-btn { position: absolute; top: 20px; right: 20px; z-index: 25; display: none; width: 40px; }
 
-        /* ── Modals & Overlays ── */
         #settings-modal {
             display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(0,0,0,0.95); border: 2px solid #00ff41; padding: 40px 60px; border-radius: 20px;
@@ -128,7 +130,6 @@
             100% { transform: rotate(-90deg); } 
         }
 
-        /* ── Countdown overlay ── */
         #countdown-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: none; align-items: flex-start; justify-content: center;
@@ -160,10 +161,12 @@
         @media (max-width: 768px) {
             .game-title, .crash-title { font-size: 2.5rem; letter-spacing: 4px; }
             .game-subtitle, .crash-subtitle { font-size: 1rem; }
-            #menu { right: 50%; transform: translateX(50%); bottom: 8%; }
+            #menu { right: 50%; transform: translateX(50%); bottom: 8%; width: 90%; }
             .game-over-card { bottom: 8%; }
-            button { padding: 12px 40px; font-size: 1.5rem; }
-            #countdown-text { font-size: 4.5rem; }
+            button { padding: 12px 20px; font-size: 1.5rem; }
+            
+            #countdown-text { font-size: 4.5rem; text-shadow: 0 0 10px #00ff41; }
+            #countdown-text.go { text-shadow: 0 0 15px #00ff41; }
             
             #settings-btn-desktop { display: none; }
             #settings-btn-mobile { display: block; }
@@ -201,9 +204,16 @@
         <span id="countdown-text">3</span>
     </div>
 
+    <div id="menu-coins" class="coin-display">
+        🪙 <span id="menuCoinVal">0</span>
+    </div>
+
     <div id="hud">
         DISTANCE: <span id="scoreVal">0</span>m
         <div id="high-score-hud">BEST: <span id="bestVal">0</span>m</div>
+        <div class="coin-display" style="font-size: 1.2rem; margin-top: 5px;">
+            🪙 <span id="hudCoinVal">0</span>
+        </div>
     </div>
 
     <div id="game-over-screen">
@@ -227,8 +237,13 @@
             <div class="game-subtitle">Simulator 3D</div>
         </div>
         <div class="menu-card" id="menu">
+            <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 20px;">
+                <button id="prevPlaneBtn" class="arrow-btn">❮</button>
+                <div id="planeName" style="font-size: 2rem; width: 220px; font-weight: bold; text-shadow: 0 0 10px #00ff41; letter-spacing: 2px;">CLASSIC</div>
+                <button id="nextPlaneBtn" class="arrow-btn">❯</button>
+            </div>
             <div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
-                <button id="playBtn">PLAY</button>
+                <button id="playBtn" style="min-width: 250px;">PLAY</button>
                 <img class="icon-btn icon-white" id="settings-btn-mobile" src="https://cdn-icons-png.flaticon.com/512/2040/2040504.png" alt="Settings">
             </div>
             <p id="controls-hint" style="font-size: 1rem; color: #aaa; margin-top: 1.5rem; letter-spacing: 1px;">use [W/A/S/D] to move plane</p>
@@ -241,7 +256,8 @@
         import { MController } from './Mcontroller.js';
         import { Player } from './player.js';
         import { WorldManager } from './world.js';
-        import { startMusic, toggleMute, toggleSFX, playClick, playCrash, playBeep, getMusicMuted, getSFXMuted } from './music-handler.js';
+        import { CollectableManager } from './collectable.js'; 
+        import { startMusic, toggleMute, toggleSFX, playClick, playCrash, playBeep, playCoin, getMusicMuted, getSFXMuted } from './music-handler.js';
 
         startMusic();
 
@@ -254,8 +270,6 @@
         scene.fog = new THREE.Fog(0x050505, 5, 45);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        
-        // MOBILE OPTIMIZATION: Disable antialiasing on mobile for better FPS
         const renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
@@ -268,9 +282,23 @@
         let worldShiftX = 0;
         let dynamicWorldSpeed = 0.25;
         let lerpFactor = 0;
-        let gameTime = 0; // Custom clock to handle pausing cleanly
+        let gameTime = 0;
         let highScore = localStorage.getItem('paperPlane_highScore') || 0;
         document.getElementById('bestVal').innerText = Math.floor(highScore);
+
+        let coins = parseInt(localStorage.getItem('paperPlane_coins') || '0');
+        let ownedPlanes = JSON.parse(localStorage.getItem('paperPlane_owned') || '[0]');
+        let currentPlaneIndex = parseInt(localStorage.getItem('paperPlane_current') || '0');
+        let viewIndex = currentPlaneIndex;
+
+        document.getElementById('menuCoinVal').innerText = coins;
+        document.getElementById('hudCoinVal').innerText = coins;
+
+        function saveProgress() {
+            localStorage.setItem('paperPlane_coins', coins.toString());
+            localStorage.setItem('paperPlane_owned', JSON.stringify(ownedPlanes));
+            localStorage.setItem('paperPlane_current', currentPlaneIndex.toString());
+        }
 
         const ambientLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5);
         scene.add(ambientLight);
@@ -279,7 +307,10 @@
         scene.add(directionalLight);
 
         let player = new Player(scene);
-        let world = new WorldManager(scene, isMobile); // Pass isMobile to optimize chunks
+        player.setPlaneType(currentPlaneIndex); 
+        
+        let world = new WorldManager(scene, isMobile);
+        let collectables = new CollectableManager(scene, isMobile);
 
         const playBtn = document.getElementById('playBtn');
         const rebootBtn = document.getElementById('rebootBtn');
@@ -289,9 +320,51 @@
         const scoreVal = document.getElementById('scoreVal');
         const gameOverUI = document.getElementById('game-over-screen');
         const countdownOverlay = document.getElementById('countdown-overlay');
+        const planeNameDisplay = document.getElementById('planeName');
+        const menuCoinDisplay = document.getElementById('menu-coins');
         let countdownText = document.getElementById('countdown-text');
 
-        // Settings & Modals (Initialize with Saved States)
+        function updateMenuUI() {
+            const def = player.planeDefs[viewIndex];
+            planeNameDisplay.innerText = def.name;
+            player.setPlaneType(viewIndex); 
+
+            if (ownedPlanes.includes(viewIndex)) {
+                playBtn.innerHTML = (viewIndex === currentPlaneIndex) ? "PLAY" : "SELECT";
+                playBtn.style.borderColor = "#00ff41";
+                playBtn.style.color = "#00ff41";
+            } else {
+                playBtn.innerHTML = `🔒 BUY ${def.price}`;
+                playBtn.style.borderColor = "#ffd700";
+                playBtn.style.color = "#ffd700";
+            }
+        }
+        updateMenuUI();
+
+        document.getElementById('prevPlaneBtn').addEventListener('click', () => {
+            playClick();
+            viewIndex = (viewIndex - 1 + player.planeDefs.length) % player.planeDefs.length;
+            updateMenuUI();
+        });
+
+        document.getElementById('nextPlaneBtn').addEventListener('click', () => {
+            playClick();
+            viewIndex = (viewIndex + 1) % player.planeDefs.length;
+            updateMenuUI();
+        });
+
+        // GOD MODE FIX: Added {capture: true} to bypass joystick overlays on mobile
+        function bindTouchAndClick(elementId, handler) {
+            const el = document.getElementById(elementId);
+            const wrappedHandler = (e) => {
+                e.preventDefault(); 
+                e.stopPropagation();
+                handler(e);
+            };
+            el.addEventListener('click', wrappedHandler, true);
+            el.addEventListener('touchstart', wrappedHandler, { passive: false, capture: true });
+        }
+
         const settingsModal = document.getElementById('settings-modal');
         const muteBtn = document.getElementById('muteBtn');
         const sfxBtn = document.getElementById('sfxBtn');
@@ -299,34 +372,33 @@
         muteBtn.src = getMusicMuted() ? "https://cdn-icons-png.flaticon.com/512/727/727240.png" : "https://cdn-icons-png.flaticon.com/512/727/727269.png";
         sfxBtn.src = getSFXMuted() ? "https://cdn-icons-png.flaticon.com/512/727/727240.png" : "https://cdn-icons-png.flaticon.com/512/727/727269.png";
 
-        function openSettings() {
-            playClick();
-            settingsModal.style.display = 'block';
-        }
-        document.getElementById('settings-btn-desktop').addEventListener('click', openSettings);
-        document.getElementById('settings-btn-mobile').addEventListener('click', openSettings);
-        document.getElementById('go-settings-btn').addEventListener('click', openSettings);
-        
-        document.getElementById('closeSettingsBtn').addEventListener('click', () => {
-            playClick();
-            settingsModal.style.display = 'none';
-        });
+        function openSettings() { playClick(); settingsModal.style.display = 'block'; }
+        function closeSettings() { playClick(); settingsModal.style.display = 'none'; }
 
-        muteBtn.addEventListener('click', () => {
+        bindTouchAndClick('settings-btn-desktop', openSettings);
+        bindTouchAndClick('settings-btn-mobile', openSettings);
+        bindTouchAndClick('go-settings-btn', openSettings);
+        bindTouchAndClick('closeSettingsBtn', closeSettings);
+
+        // GOD MODE: Patched Mobile Toggle Bug
+        const handleMute = () => {
             playClick();
             const isMuted = toggleMute();
             muteBtn.src = isMuted ? "https://cdn-icons-png.flaticon.com/512/727/727240.png" : "https://cdn-icons-png.flaticon.com/512/727/727269.png";
-        });
+        };
+        muteBtn.addEventListener('click', handleMute);
+        muteBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleMute(); }, {passive: false});
 
-        sfxBtn.addEventListener('click', () => {
+        const handleSFX = () => {
             const isSFXMuted = toggleSFX();
             if (!isSFXMuted) playClick();
             sfxBtn.src = isSFXMuted ? "https://cdn-icons-png.flaticon.com/512/727/727240.png" : "https://cdn-icons-png.flaticon.com/512/727/727269.png";
-        });
+        };
+        sfxBtn.addEventListener('click', handleSFX);
+        sfxBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleSFX(); }, {passive: false});
 
-        // Pause Toggle Logic (Fixed for Mobile JoyStick interference)
         function togglePause(e) {
-            if (e) { e.preventDefault(); e.stopPropagation(); } // Prevents mobile from passing click to background UI
+            if (e) { e.preventDefault(); e.stopPropagation(); }
             playClick();
             isPaused = !isPaused;
             pauseBtn.src = isPaused 
@@ -335,15 +407,6 @@
         }
         pauseBtn.addEventListener('click', togglePause);
         pauseBtn.addEventListener('touchstart', togglePause, { passive: false });
-
-        // Auto-Pause on Mobile Rotate
-        const orientationQuery = window.matchMedia("(max-width: 768px) and (orientation: portrait)");
-        orientationQuery.addEventListener("change", (e) => {
-            if (e.matches && (gameState === 'PLAYING' || gameState === 'COUNTDOWN')) {
-                isPaused = true;
-                pauseBtn.src = "https://cdn-icons-png.flaticon.com/512/724/724927.png";
-            }
-        });
 
         function startCountdown(onDone) {
             const steps = ['3', '2', '1', 'GO!'];
@@ -370,7 +433,7 @@
                         el.classList.add('fade-out');
                         setTimeout(() => {
                             countdownOverlay.classList.remove('active');
-                            pauseBtn.style.display = 'block'; // Show pause when playing begins
+                            pauseBtn.style.display = 'block'; 
                             onDone();
                         }, 550);
                     }, 600);
@@ -381,13 +444,33 @@
 
         playBtn.addEventListener('click', () => {
             if (gameState !== 'MENU') return;
+            const def = player.planeDefs[viewIndex];
+            if (!ownedPlanes.includes(viewIndex)) {
+                if (coins >= def.price) {
+                    playCoin();
+                    coins -= def.price;
+                    ownedPlanes.push(viewIndex);
+                    document.getElementById('menuCoinVal').innerText = coins;
+                    document.getElementById('hudCoinVal').innerText = coins;
+                    saveProgress();
+                    updateMenuUI();
+                } else {
+                    playCrash(); 
+                }
+                return;
+            } else if (viewIndex !== currentPlaneIndex) {
+                playClick();
+                currentPlaneIndex = viewIndex;
+                saveProgress();
+                updateMenuUI();
+                return;
+            }
             playClick();
             if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
-
             gameState = 'TRANSITION';
             menuUI.style.opacity = '0';
-            setTimeout(() => { menuUI.style.display = 'none'; }, 500);
-            
+            menuCoinDisplay.style.opacity = '0';
+            setTimeout(() => { menuUI.style.display = 'none'; menuCoinDisplay.style.display = 'none'; }, 500);
             hud.style.display = 'block';
             if (isMobile && MController.showJoystick) MController.showJoystick();
         });
@@ -403,24 +486,22 @@
             gameTime = 0;
             isPaused = false;
             pauseBtn.style.display = 'none';
-            pauseBtn.src = "https://cdn-icons-png.flaticon.com/512/151/151859.png";
-
             if (isMobile) MController.reset();
-
             scene.remove(player.group);
             world.chunks.forEach(chunk => scene.remove(chunk));
-
             world.obstacles.forEach(obs => { obs.geometry.dispose(); obs.material.dispose(); });
             world.obstacles.length = 0;
-            
+            collectables.dispose();
             player = new Player(scene);
+            player.setPlaneType(currentPlaneIndex); 
             world = new WorldManager(scene, isMobile);
-
+            collectables = new CollectableManager(scene, isMobile);
             gameOverUI.style.display = 'none';
             hud.style.display = 'none';
-            
             menuUI.style.display = 'block';
-            setTimeout(() => { menuUI.style.opacity = '1'; }, 10);
+            menuCoinDisplay.style.display = 'block';
+            updateMenuUI();
+            setTimeout(() => { menuUI.style.opacity = '1'; menuCoinDisplay.style.opacity = '1'; }, 10);
         });
 
         rebootBtn.addEventListener('click', () => {
@@ -432,27 +513,21 @@
             lerpFactor = 1;
             gameTime = 0;
             isPaused = false;
-            pauseBtn.src = "https://cdn-icons-png.flaticon.com/512/151/151859.png";
-
             if (isMobile) MController.reset();
-
             scene.remove(player.group);
             world.chunks.forEach(chunk => scene.remove(chunk));
-
             world.obstacles.forEach(obs => { obs.geometry.dispose(); obs.material.dispose(); });
             world.obstacles.length = 0;
-            
+            collectables.dispose();
             player = new Player(scene);
+            player.setPlaneType(currentPlaneIndex);
             world = new WorldManager(scene, isMobile);
-            
+            collectables = new CollectableManager(scene, isMobile);
             player.group.position.x = 0;
-
             gameOverUI.style.display = 'none';
             hud.style.display = 'block';
-            pauseBtn.style.display = 'none'; // Hidden during countdown
-
+            pauseBtn.style.display = 'none'; 
             if (isMobile && MController.showJoystick) MController.showJoystick();
-
             gameState = 'COUNTDOWN';
             player.setGhost(true);
             activeController.isGhostMode = true;
@@ -467,16 +542,34 @@
         const _obsBox = new THREE.Box3();
         const _tempVec = new THREE.Vector3();
 
-        function checkCollisions() {
+        function checkObstacleCollisions() {
             _planeBox.setFromObject(player.hitbox);
             for (let obs of world.obstacles) {
                 obs.getWorldPosition(_tempVec);
                 if (Math.abs(_tempVec.z) > 3) continue;
-                
                 _obsBox.setFromObject(obs);
                 if (_planeBox.intersectsBox(_obsBox)) return true;
             }
             return false;
+        }
+
+        function checkCoinCollisions() {
+            _planeBox.setFromObject(player.hitbox);
+            for (let item of collectables.items) {
+                if (!item.visible) continue; 
+                item.getWorldPosition(_tempVec);
+                if (Math.abs(_tempVec.z) > 3) continue;
+                _obsBox.setFromObject(item);
+                if (_planeBox.intersectsBox(_obsBox)) {
+                    item.visible = false;
+                    item.position.y = -999; 
+                    coins++;
+                    document.getElementById('hudCoinVal').innerText = coins;
+                    document.getElementById('menuCoinVal').innerText = coins;
+                    playCoin();
+                    saveProgress();
+                }
+            }
         }
 
         const clock = new THREE.Clock();
@@ -484,18 +577,15 @@
         function animate() {
             requestAnimationFrame(animate);
             if (gameState === 'GAMEOVER') return;
-
-            const delta = clock.getDelta(); // Must call every frame to prevent delta bursts
-            
+            const delta = clock.getDelta(); 
             if (isPaused) {
                 renderer.render(scene, camera);
                 return;
             }
-
-            gameTime += delta; // Custom clock prevents animation jumping
+            gameTime += delta; 
             const t = gameTime;
-
             world.update(dynamicWorldSpeed, worldShiftX, t);
+            collectables.update(dynamicWorldSpeed, worldShiftX, t);
 
             if (gameState === 'MENU') {
                 camera.position.lerp(new THREE.Vector3(2, 4, 8), 0.05);
@@ -522,30 +612,25 @@
                 dynamicWorldSpeed = Math.min(0.25 + (score * 0.0005), 0.8);
                 score += dynamicWorldSpeed * 0.1;
                 scoreVal.innerText = Math.floor(score);
-
                 const ctrl = activeController.update(player.group, worldShiftX, delta);
                 worldShiftX = ctrl.worldShiftX;
-
                 player.updateFlightAnimation(t, ctrl);
                 player.updateGlitch(t);
-
                 camera.position.set(0, player.group.position.y + 1.5, 5);
                 camera.lookAt(0, player.group.position.y, -2);
+                checkCoinCollisions(); 
             }
             else if (gameState === 'PLAYING') {
                 dynamicWorldSpeed = Math.min(0.25 + (score * 0.0005), 0.8);
                 score += dynamicWorldSpeed * 0.1;
                 scoreVal.innerText = Math.floor(score);
-
                 const ctrl = activeController.update(player.group, worldShiftX, delta);
                 worldShiftX = ctrl.worldShiftX;
-
                 player.updateFlightAnimation(t, ctrl);
-
                 camera.position.set(0, player.group.position.y + 1.5, 5);
                 camera.lookAt(0, player.group.position.y, -2);
-
-                if (ctrl.isCrashed || ctrl.isGroundHit || checkCollisions()) {
+                checkCoinCollisions(); 
+                if (ctrl.isCrashed || ctrl.isGroundHit || checkObstacleCollisions()) {
                     playCrash();
                     gameState = 'CRASHING';
                     pauseBtn.style.display = 'none';
@@ -554,10 +639,8 @@
             }
             else if (gameState === 'CRASHING') {
                 player.updateCrashAnimation(delta);
-
                 camera.position.set(0, player.group.position.y + 1.5, 5);
                 camera.lookAt(0, player.group.position.y, -2);
-
                 if (player.group.position.y <= 0 && gameOverUI.style.display !== 'block') {
                     if (score > highScore) {
                         highScore = score;
@@ -568,12 +651,9 @@
                     hud.style.display = 'none';
                 }
             }
-            
             renderer.render(scene, camera);
         }
-
         animate();
-
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
