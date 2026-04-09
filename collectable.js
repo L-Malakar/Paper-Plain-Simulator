@@ -9,14 +9,15 @@ export class CollectableManager {
         this.items = []; 
 
         // Option A: Realistic 3D Coin Model (Highly Optimized)
-        const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.08, 16);
+        // INCREASED size slightly for better visibility
+        const coinGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16);
         coinGeo.rotateX(Math.PI / 2); // Stand it upright
         const coinMat = new THREE.MeshStandardMaterial({
-            color: 0xffd700,       // Gold
-            metalness: 1.0,        // Fully metallic reflection
-            roughness: 0.3,        // Slightly shiny
-            emissive: 0x443300,    // Slight internal glow to pop in the dark scene
-            emissiveIntensity: 0.4
+            color: 0xffea00,       // Brighter Yellow/Gold
+            metalness: 0.8,        // Highly reflective
+            roughness: 0.1,        // Very shiny
+            emissive: 0xffaa00,    // Strong amber/gold glow
+            emissiveIntensity: 2.5 // Heavily increased intensity to pop in the dark scene
         });
 
         this.sharedGeo = coinGeo;
@@ -65,6 +66,10 @@ export class CollectableManager {
             chunk.children.forEach(child => {
                 if (child.visible) {
                     child.rotation.y += 0.05; // Spin on axis
+                    
+                    // ADDED: Pulsating scale animation to draw the player's eye
+                    const pulse = 1.0 + Math.sin(elapsed * 6) * 0.15;
+                    child.scale.set(pulse, pulse, pulse);
                 }
             });
 
