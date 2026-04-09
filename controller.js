@@ -1,93 +1,88 @@
-import * as THREE from 'https://unpkg.com/three@0.136.0/build/three.module.js';
+/**
+ * Controller Logic for 3D Paper Plane
+ * Manages Key States, World Horizontal Movement, and Plane Vertical Movement
+ */
 
-export class CollectableManager {
-    constructor(scene, isMobile = false) {
-        this.scene = scene;
-        this.isMobile = isMobile;
-        this.chunkSize = 40;
-        this.chunks = [];
-        this.items = []; 
+export const Controller = {
+    // --- STATE ---
+    keys: {
+        w: false,
+        s: false,
+        a: false,
+        d: false
+    },
+    
+    // --- CONFIGURATION ---
+    config: {
+        moveSpeed: 0.22,      // Speed of world shifting (A/D)
+        verticalSpeed: 0.1,  // Speed of plane climbing/diving (W/S)
+        maxHeight: 6,        // Reduced Ceiling limit to prevent escaping pillars
+        minHeight: 0,         // Ground level
+        // FIX 5: Minimum height enforced during ghost/glitch mode so the plane
+        // cannot fly below ground level even when invincible.
+        ghostMinHeight: 0.5,
+        chunkSize: 40         // Used for world wrapping
+    },
 
-        // Option A: Realistic 3D Coin Model (Highly Optimized)
-        // INCREASED size slightly for better visibility
-        const coinGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16);
-        coinGeo.rotateX(Math.PI / 2); // Stand it upright
-        const coinMat = new THREE.MeshStandardMaterial({
-            color: 0xffea00,       // Brighter Yellow/Gold
-            metalness: 0.8,        // Highly reflective
-            roughness: 0.1,        // Very shiny
-            emissive: 0xffaa00,    // Strong amber/gold glow
-            emissiveIntensity: 2.5 // Heavily increased intensity to pop in the dark scene
-        });
+    // FIX 5: Set by the game loop when ghost mode is active
+    isGhostMode: false,
 
-        this.sharedGeo = coinGeo;
-        this.sharedMat = coinMat;
+    // --- INITIALIZATION ---
+    init() {
+        window.addEventListener('keydown', (e) => this.handleKey(e, true));
+        window.addEventListener('keyup', (e) => this.handleKey(e, false));
+    },
 
-        for (let i = 0; i < 8; i++) {
-            this.chunks.push(this.createChunk(-i * this.chunkSize));
+    handleKey(event, isPressed) {
+        const key = event.key.toLowerCase();
+        if (Object.keys(this.keys).includes(key)) {
+            this.keys[key] = isPressed;
         }
-    }
+    },
 
-    createChunk(zOffset) {
-        const group = new THREE.Group();
-        const coinCount = this.isMobile ? 2 : 4; // Mobile optimization
+    // --- MOVEMENT LOGIC ---
+    update(playerGroup, currentWorldShiftX, delta) {
+        let nextWorldShiftX = currentWorldShiftX;
+        const scale = delta * 60; // Normalise to 60fps so speed is frame-rate independent
 
-        for (let i = 0; i < coinCount; i++) {
-            const mesh = new THREE.Mesh(this.sharedGeo, this.sharedMat);
-            
-            const xRel = Math.random() * this.chunkSize - (this.chunkSize / 2);
-            const zRel = Math.random() * this.chunkSize - (this.chunkSize / 2);
-            const yRel = Math.random() * 4 + 1.0;
+        // 1. Horizontal Movement (Shifting the world via A/D)
+        if (this.keys.a) nextWorldShiftX += this.config.moveSpeed * scale;
+        if (this.keys.d) nextWorldShiftX -= this.config.moveSpeed * scale;
 
-            // Align roughly with the obstacle grid lanes
-            const xIdx = Math.floor(Math.random() * 7) - 3;
-            
-            mesh.userData = {
-                category: "coin",
-                baseY: yRel,
-                baseX: (xIdx * this.chunkSize) + xRel
-            };
+        // World Wrapping Logic
+        if (nextWorldShiftX > this.config.chunkSize) nextWorldShiftX -= this.config.chunkSize;
+        if (nextWorldShiftX < -this.config.chunkSize) nextWorldShiftX += this.config.chunkSize;
 
-            mesh.position.set(mesh.userData.baseX, mesh.userData.baseY, zRel);
-            group.add(mesh);
-            this.items.push(mesh);
+        // 2. Vertical Movement (Moving the plane via W/S)
+        if (this.keys.w && playerGroup.position.y < this.config.maxHeight) {
+            playerGroup.position.y += this.config.verticalSpeed * scale;
+        }
+        if (this.keys.s) {
+            playerGroup.position.y -= this.config.verticalSpeed * scale;
         }
 
-        group.position.z = zOffset;
-        this.scene.add(group);
-        return group;
+        // FIX 5: Enforce floor barrier during ghost mode — player cannot go
+        // below ghostMinHeight while invincible, preventing ground clipping.
+        const floorLimit = this.isGhostMode
+            ? this.config.ghostMinHeight
+            : this.config.minHeight;
+
+        if (playerGroup.position.y < floorLimit) {
+            playerGroup.position.y = floorLimit;
+        }
+
+        // 3. Ground Touch Detection (only triggers a crash outside ghost mode)
+        const isCrashed = !this.isGhostMode && playerGroup.position.y <= this.config.minHeight;
+
+        // 4. Calculate Visual Rotations (Banking and Pitching)
+        const targetBank = (this.keys.a ? 0.6 : this.keys.d ? -0.6 : 0);
+        const targetPitch = (this.keys.w ? -0.3 : this.keys.s ? 0.3 : 0);
+
+        return {
+            worldShiftX: nextWorldShiftX,
+            isCrashed: isCrashed,
+            targetBank: targetBank,
+            targetPitch: targetPitch
+        };
     }
-
-    update(speed, worldShiftX, elapsed) {
-        this.chunks.forEach((chunk) => {
-            chunk.position.z += speed;
-            chunk.position.x = worldShiftX;
-
-            chunk.children.forEach(child => {
-                if (child.visible) {
-                    child.rotation.y += 0.05; // Spin on axis
-                    
-                    // ADDED: Pulsating scale animation to draw the player's eye
-                    const pulse = 1.0 + Math.sin(elapsed * 6) * 0.15;
-                    child.scale.set(pulse, pulse, pulse);
-                }
-            });
-
-            if (chunk.position.z > this.chunkSize) {
-                chunk.position.z -= this.chunkSize * this.chunks.length;
-                // Re-enable collected coins when chunk loops back
-                chunk.children.forEach(child => {
-                    child.visible = true;
-                    child.position.y = child.userData.baseY;
-                });
-            }
-        });
-    }
-
-    dispose() {
-        this.chunks.forEach(chunk => this.scene.remove(chunk));
-        this.sharedGeo.dispose();
-        this.sharedMat.dispose();
-        this.items = [];
-    }
-}
+};
