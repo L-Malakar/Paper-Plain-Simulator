@@ -1,664 +1,1175 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Paper Plane | Infinite Protocol</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
-        
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; transition: opacity 0.5s; }
-        
-        #header-container, .game-over-header {
-            position: absolute;
-            top: 10%;
-            left: 50%;
-            transform: translateX(-50%);
-            text-align: center;
-            width: 100%;
-        }
-        .game-title, .crash-title {
-            font-size: 4.5rem;
-            margin: 0;
-            color: #ffffff;
-            text-transform: uppercase;
-            letter-spacing: 8px;
-            text-shadow: 0 0 20px #00ff41, 0 0 40px #00ff41;
-            font-weight: 900;
-            font-style: italic;
-        }
-        .crash-title {
-            color: #ff0000;
-            text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000;
-        }
-        .game-subtitle, .crash-subtitle {
-            font-size: 1.5rem;
-            color: #888;
-            margin-top: 5px;
-            letter-spacing: 2px;
-        }
-
-        .menu-card, .game-over-card { 
-            position: absolute;
-            bottom: 10%;
-            left: 50%;
-            transform: translateX(-50%);
-            pointer-events: auto; 
-            text-align: center; 
-            color: white; 
-            width: 100%;
-        }
-        
-        #menu {
-            left: auto;
-            right: 5%;
-            transform: translateY(0);
-            width: auto;
-        }
-
-        #hud { position: absolute; top: 20px; left: 20px; color: #00ff41; font-size: 1.5rem; display: none; text-shadow: 0 0 10px #00ff41; pointer-events: none; }
-        #high-score-hud { font-size: 0.9rem; color: #008822; margin-top: 5px; }
-        .coin-display { color: #ffd900; text-shadow: 0 0 10px #ff0000; font-weight: bold; }
-        
-        #menu-coins { position: absolute; top: 20px; left: 20px; font-size: 2rem; z-index: 11; pointer-events: none; }
-
-        #game-over-screen { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            display: none; 
-            z-index: 20; 
-            pointer-events: none;
-        }
-        
-        button { 
-            padding: 15px 60px; 
-            font-size: 2rem; 
-            background: transparent; 
-            color: #00ff41; 
-            border: 2px solid #00ff41; 
-            border-radius: 20px; 
-            cursor: pointer; 
-            text-transform: uppercase; 
-            letter-spacing: 4px; 
-            transition: 0.3s; 
-            pointer-events: auto; 
-        }
-        button:hover { background: #00ff41; color: #000; box-shadow: 0 0 30px #00ff41; }
-        
-        .btn-restart { color: #ff0000; border-color: #ff0000; }
-        .btn-restart:hover { background: #ff0000; color: #fff; box-shadow: 0 0 20px #ff0000; }
-        
-        .arrow-btn { padding: 10px; border: none; font-size: 2.5rem; color: #00ff41; min-width: 60px; }
-        .arrow-btn:hover { background: transparent; color: #fff; box-shadow: none; transform: scale(1.2); }
-
-        .icon-btn { width: 50px; cursor: pointer; transition: transform 0.2s; pointer-events: auto; }
-        .icon-btn:hover { transform: scale(1.1); }
-
-        .icon-white { filter: invert(1) brightness(2); }
-
-        #settings-btn-desktop { position: absolute; top: 20px; right: 20px; z-index: 11; }
-        #settings-btn-mobile { display: none; }
-        #pause-btn { position: absolute; top: 20px; right: 20px; z-index: 25; display: none; width: 40px; }
-
-        #settings-modal {
-            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.95); border: 2px solid #00ff41; padding: 40px 60px; border-radius: 20px;
-            z-index: 1000; text-align: center; box-shadow: 0 0 30px #00ff41; pointer-events: auto;
-            min-width: 250px;
-        }
-
-        .close-btn {
-            position: absolute; top: 10px; right: 20px; color: #888; font-size: 2.5rem;
-            cursor: pointer; transition: color 0.3s; font-weight: bold;
-        }
-        .close-btn:hover { color: #ff0000; }
-
-        #rotate-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 9999; display: none;
-            flex-direction: column; justify-content: center; align-items: center;
-            color: #00ff41; font-size: 1.5rem; text-align: center; font-weight: bold; letter-spacing: 2px;
-        }
-        #rotate-overlay img { width: 100px; animation: rotatePhone 2s infinite ease-in-out; margin-bottom: 20px; }
-        
-        @keyframes rotatePhone { 
-            0% { transform: rotate(-90deg); } 
-            50% { transform: rotate(0deg); } 
-            100% { transform: rotate(-90deg); } 
-        }
-
-        #countdown-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: none; align-items: flex-start; justify-content: center;
-            padding-top: 6%; z-index: 15; pointer-events: none;
-        }
-        #countdown-overlay.active { display: flex; }
-        #countdown-text {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 7rem; font-weight: 900; font-style: italic; color: #ffffff;
-            text-transform: uppercase; letter-spacing: 6px;
-            text-shadow: 0 0 30px #00ff41, 0 0 60px #00ff41;
-            animation: countdown-pop 0.35s cubic-bezier(0.175,0.885,0.32,1.275);
-            will-change: transform, opacity;
-        }
-        #countdown-text.go { color: #00ff41; text-shadow: 0 0 30px #00ff41, 0 0 80px #00ff41, 0 0 120px #00ff41; }
-        
-        @keyframes countdown-pop {
-            0%   { transform: scale(2.2); opacity: 0; }
-            60%  { transform: scale(0.92); opacity: 1; }
-            100% { transform: scale(1);   opacity: 1; }
-        }
-        @keyframes countdown-fade {
-            0%   { opacity: 1; }
-            70%  { opacity: 1; }
-            100% { opacity: 0; }
-        }
-        #countdown-text.fade-out { animation: countdown-fade 0.55s ease forwards; }
-
-        @media (max-width: 768px) {
-            .game-title, .crash-title { font-size: 2.5rem; letter-spacing: 4px; }
-            .game-subtitle, .crash-subtitle { font-size: 1rem; }
-            #menu { right: 50%; transform: translateX(50%); bottom: 8%; width: 90%; }
-            .game-over-card { bottom: 8%; }
-            button { padding: 12px 20px; font-size: 1.5rem; }
-            
-            #countdown-text { font-size: 4.5rem; text-shadow: 0 0 10px #00ff41; }
-            #countdown-text.go { text-shadow: 0 0 15px #00ff41; }
-            
-            #settings-btn-desktop { display: none; }
-            #settings-btn-mobile { display: block; }
-        }
-
-        @media (max-width: 768px) and (orientation: portrait) {
-            #rotate-overlay { display: flex; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PAPER PLANE · INFINITE PROTOCOL</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="rotate-overlay">
-        <img class="icon-white" src="https://cdn-icons-png.flaticon.com/512/9515/9515279.png" alt="Rotate Device">
-        <p>PLEASE ROTATE YOUR<br>DEVICE TO PLAY</p>
+
+<!-- ═══ ROTATE OVERLAY ═══════════════════════════════════════════ -->
+<div id="rotate-overlay">
+  <img src="https://cdn-icons-png.flaticon.com/512/9515/9515279.png" alt="Rotate">
+  <p>ROTATE DEVICE<br>TO LANDSCAPE</p>
+</div>
+
+<!-- ═══ TOP-LEFT: MENU STATS ════════════════════════════════════ -->
+<div id="menu-stats">
+  <div class="stat-row stat-coins">⬡ <span id="menuCoinVal">0</span></div>
+  <div class="stat-row stat-best">BEST <span id="menuBestVal">0</span>m</div>
+</div>
+
+<!-- ═══ TOP-RIGHT: SETTINGS BTN (menu) ══════════════════════════ -->
+<img class="icon-btn" id="main-settings-btn"
+     src="https://cdn-icons-png.flaticon.com/512/2040/2040504.png" alt="Settings">
+
+<!-- ═══ TOP-RIGHT: PAUSE BTN (in-game) ══════════════════════════ -->
+<img id="pause-btn" class="icon-btn"
+     src="https://cdn-icons-png.flaticon.com/512/151/151859.png" alt="Pause">
+
+<!-- ═══ GHOST INDICATOR ══════════════════════════════════════════ -->
+<div id="ghost-indicator">▸ INVINCIBLE</div>
+
+<!-- ═══ POWER-UP HUD ══════════════════════════════════════════════ -->
+<div id="powerup-hud"></div>
+
+<!-- ═══ DIFFICULTY LABEL ═════════════════════════════════════════ -->
+<div id="diff-label">CADET</div>
+
+<!-- ═══ HUD ══════════════════════════════════════════════════════ -->
+<div id="hud">
+  <div id="hud-panel">
+    <span class="hud-label">DISTANCE</span>
+    <div class="hud-row">
+      <span class="hud-value" id="scoreVal">0</span>
+      <span class="hud-label">m</span>
     </div>
+    <div class="hud-best">BEST <span id="bestVal">0</span>m</div>
+    <div class="hud-coins">⬡ <span id="hudCoinVal">0</span></div>
+    <div id="speed-bar-wrap"><div id="speed-bar"></div></div>
+  </div>
+</div>
 
-    <img id="pause-btn" class="icon-btn icon-white" src="https://cdn-icons-png.flaticon.com/512/151/151859.png" alt="Pause">
+<!-- ═══ PAUSE SCREEN ════════════════════════════════════════════ -->
+<!-- NOTE: display:none by default; JS controls visibility -->
+<div id="pause-screen" style="display:none;">
+  <div class="pause-title">PAUSED</div>
+  <div class="pause-subtitle">// SIMULATION SUSPENDED</div>
+  <div class="pause-actions">
+    <button id="pause-home-btn">
+      <span>HOME</span><span class="key-badge" id="kb-badge-home">H</span>
+    </button>
+    <button id="resume-btn">
+      <span>RESUME</span><span class="key-badge">ESC</span>
+    </button>
+    <button id="pause-settings-btn">
+      <span>SETTINGS</span><span class="key-badge" id="kb-badge-settings">O</span>
+    </button>
+  </div>
+</div>
 
-    <div id="settings-modal">
-        <div id="closeSettingsBtn" class="close-btn">&times;</div>
-        <h2 style="color: white; margin-top: 0; letter-spacing: 2px; margin-bottom: 30px;">SETTINGS</h2>
-        <div style="display: flex; justify-content: center; gap: 40px;">
-            <div style="text-align: center;">
-                <p style="color: white; margin-bottom: 10px; letter-spacing: 2px;">MUSIC</p>
-                <img id="muteBtn" class="icon-btn icon-white" src="" alt="Toggle Music" style="width: 60px;">
-            </div>
-            <div style="text-align: center;">
-                <p style="color: white; margin-bottom: 10px; letter-spacing: 2px;">SFX</p>
-                <img id="sfxBtn" class="icon-btn icon-white" src="" alt="Toggle SFX" style="width: 60px;">
-            </div>
+<!-- ═══ SETTINGS MODAL ══════════════════════════════════════════ -->
+<div id="settings-modal">
+  <span id="closeSettingsBtn" class="close-btn">&times;</span>
+  <div class="modal-title">// SETTINGS</div>
+
+  <!-- Tabs -->
+  <div class="settings-tabs">
+    <button class="tab-btn active" data-tab="audio">AUDIO</button>
+    <button class="tab-btn" data-tab="keybinds">KEYBINDS</button>
+    <button class="tab-btn" data-tab="mobile">MOBILE</button>
+  </div>
+
+  <!-- ── Audio tab ─────────────────────────────────────────── -->
+  <div class="tab-panel active" id="tab-audio">
+    <div class="setting-row">
+      <span class="setting-label">MUSIC</span>
+      <img id="muteBtn" class="icon-btn" src="" alt="Mute Music" style="width:28px;flex-shrink:0;">
+      <input type="range" id="musicSlider" min="0" max="1" step="0.01" value="0.5">
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">SFX</span>
+      <img id="sfxBtn" class="icon-btn" src="" alt="Mute SFX" style="width:28px;flex-shrink:0;">
+      <input type="range" id="sfxSlider" min="0" max="1" step="0.01" value="1">
+    </div>
+  </div>
+
+  <!-- ── Keybinds tab ─────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-keybinds">
+    <div class="keybinds-grid" id="keybinds-grid">
+      <!-- Populated by JS -->
+    </div>
+    <div style="text-align:center; margin-top:16px;">
+      <button id="resetBindsBtn" style="font-size:0.72rem; padding:6px 16px; letter-spacing:2px;">
+        RESET TO DEFAULT
+      </button>
+    </div>
+    <p style="font-family:var(--font-mono); font-size:0.62rem; color:var(--clr-muted); margin-top:10px; letter-spacing:1px;">
+      Click a key to remap • Press any key to assign
+    </p>
+  </div>
+
+  <!-- ── Mobile controls tab ─────────────────────────────── -->
+  <div class="tab-panel" id="tab-mobile">
+    <div class="mobile-ctrl-opts" id="mobile-ctrl-opts">
+      <button class="ctrl-opt" data-mode="joystick">
+        <div class="ctrl-opt-dot"></div>
+        <div class="ctrl-opt-info">
+          <div class="ctrl-opt-name">VIRTUAL JOYSTICK</div>
+          <div class="ctrl-opt-desc">Tap and drag anywhere bottom-left</div>
         </div>
-    </div>
-
-    <div id="countdown-overlay">
-        <span id="countdown-text">3</span>
-    </div>
-
-    <div id="menu-coins" class="coin-display">
-        🪙 <span id="menuCoinVal">0</span>
-    </div>
-
-    <div id="hud">
-        DISTANCE: <span id="scoreVal">0</span>m
-        <div id="high-score-hud">BEST: <span id="bestVal">0</span>m</div>
-        <div class="coin-display" style="font-size: 1.2rem; margin-top: 5px;">
-            🪙 <span id="hudCoinVal">0</span>
+      </button>
+      <button class="ctrl-opt" data-mode="dpad">
+        <div class="ctrl-opt-dot"></div>
+        <div class="ctrl-opt-info">
+          <div class="ctrl-opt-name">D-PAD BUTTONS</div>
+          <div class="ctrl-opt-desc">On-screen directional buttons</div>
         </div>
+      </button>
+      <button class="ctrl-opt" data-mode="gyro">
+        <div class="ctrl-opt-dot"></div>
+        <div class="ctrl-opt-info">
+          <div class="ctrl-opt-name">GYROSCOPE</div>
+          <div class="ctrl-opt-desc">Tilt your device to steer</div>
+        </div>
+      </button>
     </div>
+    <p style="font-family:var(--font-mono); font-size:0.62rem; color:var(--clr-muted); margin-top:14px; letter-spacing:1px;">
+      Changes apply on next session start
+    </p>
+  </div>
+</div>
 
-    <div id="game-over-screen">
-        <div class="game-over-header">
-            <h1 class="crash-title">CRASHED</h1>
-            <div class="crash-subtitle">By L.Malakar</div>
-        </div>
-        <div class="game-over-card">
-            <div style="display: flex; justify-content: center; gap: 40px; margin-bottom: 20px;">
-                <img class="icon-btn icon-white" id="go-home-btn" src="https://cdn-icons-png.flaticon.com/512/15844/15844408.png" alt="Home">
-                <img class="icon-btn icon-white" id="go-settings-btn" src="https://cdn-icons-png.flaticon.com/512/2040/2040504.png" alt="Settings">
-            </div>
-            <button class="btn-restart" id="rebootBtn">RETRY</button>
-        </div>
+<!-- ═══ COUNTDOWN ═══════════════════════════════════════════════ -->
+<div id="countdown-overlay">
+  <span id="countdown-text">3</span>
+</div>
+
+<!-- ═══ GAME OVER ═══════════════════════════════════════════════ -->
+<div id="game-over-screen">
+  <div class="game-over-header">
+    <h1 class="crash-title">CRASHED</h1>
+    <div class="crash-subtitle">// PROTOCOL TERMINATED · L.MALAKAR</div>
+  </div>
+  <div class="game-over-card">
+    <div class="go-stats">
+      <div class="go-stat-block">
+        <div class="go-stat-label">DISTANCE</div>
+        <div class="go-stat-value" id="go-score">0m</div>
+      </div>
+      <div class="go-stat-block">
+        <div class="go-stat-label">BEST</div>
+        <div class="go-stat-value" id="go-best">0m</div>
+      </div>
+      <div class="go-stat-block">
+        <div class="go-stat-label">COINS</div>
+        <div class="go-stat-value" id="go-coins" style="color:var(--clr-gold);text-shadow:var(--glow-gold);">0</div>
+      </div>
     </div>
-
-    <div id="ui-layer">
-        <img class="icon-btn icon-white" id="settings-btn-desktop" src="https://cdn-icons-png.flaticon.com/512/2040/2040504.png" alt="Settings">
-        <div id="header-container">
-            <h1 class="game-title">PAPER PLANE</h1>
-            <div class="game-subtitle">Simulator 3D</div>
-        </div>
-        <div class="menu-card" id="menu">
-            <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 20px;">
-                <button id="prevPlaneBtn" class="arrow-btn">❮</button>
-                <div id="planeName" style="font-size: 2rem; width: 220px; font-weight: bold; text-shadow: 0 0 10px #00ff41; letter-spacing: 2px;">CLASSIC</div>
-                <button id="nextPlaneBtn" class="arrow-btn">❯</button>
-            </div>
-            <div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
-                <button id="playBtn" style="min-width: 250px;">PLAY</button>
-                <img class="icon-btn icon-white" id="settings-btn-mobile" src="https://cdn-icons-png.flaticon.com/512/2040/2040504.png" alt="Settings">
-            </div>
-            <p id="controls-hint" style="font-size: 1rem; color: #aaa; margin-top: 1.5rem; letter-spacing: 1px;">use [W/A/S/D] to move plane</p>
-        </div>
+    <div class="go-btn-row">
+      <button id="go-home-btn">
+        <span>HOME</span><span class="key-badge" id="kb-badge-go-home">H</span>
+      </button>
+      <button class="btn-danger" id="rebootBtn">
+        <span>RETRY</span><span class="key-badge" id="kb-badge-restart">R</span>
+      </button>
+      <button id="go-settings-btn">
+        <span>SETTINGS</span><span class="key-badge" id="kb-badge-go-settings">O</span>
+      </button>
     </div>
+  </div>
+</div>
 
-    <script type="module">
-        import * as THREE from 'https://unpkg.com/three@0.136.0/build/three.module.js';
-        import { Controller } from './controller.js';
-        import { MController } from './Mcontroller.js';
-        import { Player } from './player.js';
-        import { WorldManager } from './world.js';
-        import { CollectableManager } from './collectable.js'; 
-        import { startMusic, toggleMute, toggleSFX, playClick, playCrash, playBeep, playCoin, getMusicMuted, getSFXMuted } from './music-handler.js';
+<!-- ═══ MAIN MENU ════════════════════════════════════════════════ -->
+<div id="ui-layer">
+  <div id="header-container">
+    <h1 class="game-title">PAPER PLANE</h1>
+    <div class="game-subtitle">∞ INFINITE PROTOCOL</div>
+  </div>
 
-        startMusic();
+  <div class="menu-card" id="menu">
+    <div class="plane-selector">
+      <button class="arrow-btn" id="prevPlaneBtn">❮</button>
+      <div class="plane-name-box">
+        <div id="planeName">CLASSIC</div>
+      </div>
+      <button class="arrow-btn" id="nextPlaneBtn">❯</button>
+    </div>
+    <div class="menu-actions">
+      <button id="playBtn">
+        <span id="playBtnText">PLAY</span>
+        <span class="key-badge">ENTER</span>
+      </button>
+    </div>
+    <p id="controls-hint">[ W / A / S / D ] — NAVIGATE</p>
+  </div>
+</div>
 
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        const activeController = isMobile ? MController : Controller;
-        if (isMobile) document.getElementById('controls-hint').innerText = "use Joystick to play";
+<!-- ═══ SCRIPTS ══════════════════════════════════════════════════ -->
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.136.0/build/three.module.js';
+import { Controller }         from './controller.js';
+import { MController }        from './Mcontroller.js';
+import { Player }             from './player.js';
+import { WorldManager }       from './world.js';
+import { CollectableManager, POWERUP_DEFS } from './collectable.js';
+import {
+  startMusic, toggleMute, toggleSFX,
+  setMusicVolume, getMusicVolume,
+  setSFXVolume,   getSFXVolume,
+  playClick, playCrash, playBeep, playCoin,
+  getMusicMuted, getSFXMuted,
+} from './music-handler.js';
 
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050505);
-        scene.fog = new THREE.Fog(0x050505, 5, 45);
+// ── Extra SFX: power-up pickup (synthesised inline) ─────────
+function playPowerUp() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx  = new AudioCtx();
+    const osc  = ctx.createOscillator();
+    const env  = ctx.createGain();
+    osc.connect(env); env.connect(ctx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(300, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.18);
+    env.gain.setValueAtTime(0.25, ctx.currentTime);
+    env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.start(); osc.stop(ctx.currentTime + 0.35);
+    setTimeout(() => ctx.close(), 500);
+  } catch(_) {}
+}
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+// ═══════════════════════════════════════════════════════════════
+//  UTILITY
+// ═══════════════════════════════════════════════════════════════
 
-        activeController.init();
+/** Try to enter fullscreen on first interaction */
+const tryFullscreen = () => {
+  if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+};
+document.addEventListener('click',      tryFullscreen, { once: true });
+document.addEventListener('touchstart', tryFullscreen, { once: true });
 
-        let gameState = 'MENU';
-        let isPaused = false;
-        let score = 0;
-        let worldShiftX = 0;
-        let dynamicWorldSpeed = 0.25;
-        let lerpFactor = 0;
-        let gameTime = 0;
-        let highScore = localStorage.getItem('paperPlane_highScore') || 0;
-        document.getElementById('bestVal').innerText = Math.floor(highScore);
+/** Haptic feedback helper */
+function vibrate(pattern) {
+  if (navigator.vibrate) navigator.vibrate(pattern);
+}
 
-        let coins = parseInt(localStorage.getItem('paperPlane_coins') || '0');
-        let ownedPlanes = JSON.parse(localStorage.getItem('paperPlane_owned') || '[0]');
-        let currentPlaneIndex = parseInt(localStorage.getItem('paperPlane_current') || '0');
-        let viewIndex = currentPlaneIndex;
+/** Bind both click and touchstart to prevent double-fire */
+function bindTouchAndClick(el, handler) {
+  if (!el) return;
+  const wrapped = (e) => { e.preventDefault(); e.stopPropagation(); handler(e); };
+  el.addEventListener('click',      wrapped, true);
+  el.addEventListener('touchstart', wrapped, { passive: false, capture: true });
+}
 
-        document.getElementById('menuCoinVal').innerText = coins;
-        document.getElementById('hudCoinVal').innerText = coins;
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const activeController = isMobile ? MController : Controller;
 
-        function saveProgress() {
-            localStorage.setItem('paperPlane_coins', coins.toString());
-            localStorage.setItem('paperPlane_owned', JSON.stringify(ownedPlanes));
-            localStorage.setItem('paperPlane_current', currentPlaneIndex.toString());
-        }
+// ═══════════════════════════════════════════════════════════════
+//  THREE.JS SETUP
+// ═══════════════════════════════════════════════════════════════
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0x030508);
+scene.fog        = new THREE.Fog(0x030508, 6, 50);
 
-        const ambientLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5);
-        scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(5, 10, 7.5);
-        scene.add(directionalLight);
+const camera   = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-        let player = new Player(scene);
-        player.setPlaneType(currentPlaneIndex); 
-        
-        let world = new WorldManager(scene, isMobile);
-        let collectables = new CollectableManager(scene, isMobile);
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
-        const playBtn = document.getElementById('playBtn');
-        const rebootBtn = document.getElementById('rebootBtn');
-        const pauseBtn = document.getElementById('pause-btn');
-        const menuUI = document.getElementById('ui-layer');
-        const hud = document.getElementById('hud');
-        const scoreVal = document.getElementById('scoreVal');
-        const gameOverUI = document.getElementById('game-over-screen');
-        const countdownOverlay = document.getElementById('countdown-overlay');
-        const planeNameDisplay = document.getElementById('planeName');
-        const menuCoinDisplay = document.getElementById('menu-coins');
-        let countdownText = document.getElementById('countdown-text');
+// Lighting
+scene.add(new THREE.HemisphereLight(0xc8e6ff, 0x1a2a1a, 0.5));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+dirLight.position.set(5, 10, 7.5);
+scene.add(dirLight);
+// Accent rim light (cyan)
+const rimLight = new THREE.DirectionalLight(0x00ccff, 0.4);
+rimLight.position.set(-5, 2, -3);
+scene.add(rimLight);
 
-        function updateMenuUI() {
-            const def = player.planeDefs[viewIndex];
-            planeNameDisplay.innerText = def.name;
-            player.setPlaneType(viewIndex); 
+// ═══════════════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════════════
+let gameState        = 'MENU';
+let isPaused         = false;
+let score            = 0;
+let sessionCoins     = 0;     // coins earned this run
+let worldShiftX      = 0;
+let dynamicSpeed     = 0.25;
+let lerpFactor       = 0;
+let gameTime         = 0;
+let shakeDuration    = 0;
+let shakeIntensity   = 0;
 
-            if (ownedPlanes.includes(viewIndex)) {
-                playBtn.innerHTML = (viewIndex === currentPlaneIndex) ? "PLAY" : "SELECT";
-                playBtn.style.borderColor = "#00ff41";
-                playBtn.style.color = "#00ff41";
-            } else {
-                playBtn.innerHTML = `🔒 BUY ${def.price}`;
-                playBtn.style.borderColor = "#ffd700";
-                playBtn.style.color = "#ffd700";
-            }
-        }
-        updateMenuUI();
+const DIFF_TIERS = [
+  { label: 'CADET',    threshold: 0    },
+  { label: 'PILOT',    threshold: 200  },
+  { label: 'ACE',      threshold: 500  },
+  { label: 'LEGEND',   threshold: 1000 },
+  { label: '∞ ULTRA',  threshold: 2000 },
+];
 
-        document.getElementById('prevPlaneBtn').addEventListener('click', () => {
-            playClick();
-            viewIndex = (viewIndex - 1 + player.planeDefs.length) % player.planeDefs.length;
-            updateMenuUI();
-        });
+// Persistent data
+let highScore     = parseFloat(localStorage.getItem('paperPlane_highScore') || '0');
+let coins         = parseInt( localStorage.getItem('paperPlane_coins')      || '0');
+let ownedPlanes   = JSON.parse(localStorage.getItem('paperPlane_owned')     || '[0]');
+let currentPlane  = parseInt( localStorage.getItem('paperPlane_current')    || '0');
+let viewIndex     = currentPlane;
 
-        document.getElementById('nextPlaneBtn').addEventListener('click', () => {
-            playClick();
-            viewIndex = (viewIndex + 1) % player.planeDefs.length;
-            updateMenuUI();
-        });
+function saveProgress() {
+  localStorage.setItem('paperPlane_coins',   coins.toString());
+  localStorage.setItem('paperPlane_owned',   JSON.stringify(ownedPlanes));
+  localStorage.setItem('paperPlane_current', currentPlane.toString());
+}
 
-        // GOD MODE FIX: Added {capture: true} to bypass joystick overlays on mobile
-        function bindTouchAndClick(elementId, handler) {
-            const el = document.getElementById(elementId);
-            const wrappedHandler = (e) => {
-                e.preventDefault(); 
-                e.stopPropagation();
-                handler(e);
-            };
-            el.addEventListener('click', wrappedHandler, true);
-            el.addEventListener('touchstart', wrappedHandler, { passive: false, capture: true });
-        }
+// ═══════════════════════════════════════════════════════════════
+//  GAME OBJECTS
+// ═══════════════════════════════════════════════════════════════
+let player;
+let world;
+let collectables;
 
-        const settingsModal = document.getElementById('settings-modal');
-        const muteBtn = document.getElementById('muteBtn');
-        const sfxBtn = document.getElementById('sfxBtn');
-        
-        muteBtn.src = getMusicMuted() ? "https://cdn-icons-png.flaticon.com/512/727/727240.png" : "https://cdn-icons-png.flaticon.com/512/727/727269.png";
-        sfxBtn.src = getSFXMuted() ? "https://cdn-icons-png.flaticon.com/512/727/727240.png" : "https://cdn-icons-png.flaticon.com/512/727/727269.png";
+function initGameObjects() {
+  player      = new Player(scene);
+  player.setPlaneType(currentPlane);
+  world        = new WorldManager(scene, isMobile);
+  collectables = new CollectableManager(scene, isMobile);
+}
+initGameObjects();
 
-        function openSettings() { playClick(); settingsModal.style.display = 'block'; }
-        function closeSettings() { playClick(); settingsModal.style.display = 'none'; }
+// ═══════════════════════════════════════════════════════════════
+//  DOM REFS
+// ═══════════════════════════════════════════════════════════════
+const playBtn         = document.getElementById('playBtn');
+const playBtnText     = document.getElementById('playBtnText');
+const rebootBtn       = document.getElementById('rebootBtn');
+const pauseBtn        = document.getElementById('pause-btn');
+const pauseScreen     = document.getElementById('pause-screen');
+const menuUI          = document.getElementById('ui-layer');
+const hud             = document.getElementById('hud');
+const gameOverUI      = document.getElementById('game-over-screen');
+const countdownOvr    = document.getElementById('countdown-overlay');
+const planeNameEl     = document.getElementById('planeName');
+const menuStats       = document.getElementById('menu-stats');
+const mainSettingsBtn = document.getElementById('main-settings-btn');
+const settingsModal   = document.getElementById('settings-modal');
+const speedBar        = document.getElementById('speed-bar');
+const diffLabel       = document.getElementById('diff-label');
+const ghostIndicator  = document.getElementById('ghost-indicator');
+let   countdownText   = document.getElementById('countdown-text');
 
-        bindTouchAndClick('settings-btn-desktop', openSettings);
-        bindTouchAndClick('settings-btn-mobile', openSettings);
-        bindTouchAndClick('go-settings-btn', openSettings);
-        bindTouchAndClick('closeSettingsBtn', closeSettings);
+// ═══════════════════════════════════════════════════════════════
+//  HUD HELPERS
+// ═══════════════════════════════════════════════════════════════
+function syncHUD() {
+  document.getElementById('scoreVal').textContent   = Math.floor(score);
+  document.getElementById('bestVal').textContent    = Math.floor(highScore);
+  document.getElementById('hudCoinVal').textContent = coins;
+  document.getElementById('menuCoinVal').textContent= coins;
+  document.getElementById('menuBestVal').textContent= Math.floor(highScore);
+}
+syncHUD();
 
-        // GOD MODE: Patched Mobile Toggle Bug
-        const handleMute = () => {
-            playClick();
-            const isMuted = toggleMute();
-            muteBtn.src = isMuted ? "https://cdn-icons-png.flaticon.com/512/727/727240.png" : "https://cdn-icons-png.flaticon.com/512/727/727269.png";
-        };
-        muteBtn.addEventListener('click', handleMute);
-        muteBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleMute(); }, {passive: false});
+function updateDiffLabel() {
+  let tier = DIFF_TIERS[0];
+  for (const t of DIFF_TIERS) { if (score >= t.threshold) tier = t; }
+  diffLabel.textContent = tier.label;
+  const t = DIFF_TIERS.indexOf(tier);
+  const colors = ['var(--clr-muted)','var(--clr-accent)','var(--clr-accent2)','var(--clr-gold)','var(--clr-danger)'];
+  diffLabel.style.color = colors[t] || 'var(--clr-muted)';
+  diffLabel.style.textShadow = t >= 3 ? 'var(--glow-danger)' : '';
+}
 
-        const handleSFX = () => {
-            const isSFXMuted = toggleSFX();
-            if (!isSFXMuted) playClick();
-            sfxBtn.src = isSFXMuted ? "https://cdn-icons-png.flaticon.com/512/727/727240.png" : "https://cdn-icons-png.flaticon.com/512/727/727269.png";
-        };
-        sfxBtn.addEventListener('click', handleSFX);
-        sfxBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleSFX(); }, {passive: false});
+function updateSpeedBar() {
+  const pct = Math.min(1, (dynamicSpeed - 0.25) / (0.8 - 0.25)) * 100;
+  speedBar.style.width = pct + '%';
+}
 
-        function togglePause(e) {
-            if (e) { e.preventDefault(); e.stopPropagation(); }
-            playClick();
-            isPaused = !isPaused;
-            pauseBtn.src = isPaused 
-                ? "https://cdn-icons-png.flaticon.com/512/724/724927.png" 
-                : "https://cdn-icons-png.flaticon.com/512/151/151859.png";
-        }
-        pauseBtn.addEventListener('click', togglePause);
-        pauseBtn.addEventListener('touchstart', togglePause, { passive: false });
+function triggerShake(dur, intensity) {
+  shakeDuration  = dur;
+  shakeIntensity = intensity;
+}
 
-        function startCountdown(onDone) {
-            const steps = ['3', '2', '1', 'GO!'];
-            let i = 0;
-            countdownOverlay.classList.add('active');
+// ═══════════════════════════════════════════════════════════════
+//  SETTINGS MODAL — TABS
+// ═══════════════════════════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    playClick();
+  });
+});
 
-            function showStep() {
-                if (steps[i] === 'GO!') playBeep(true);
-                else playBeep(false);
+// ═══════════════════════════════════════════════════════════════
+//  AUDIO SETTINGS
+// ═══════════════════════════════════════════════════════════════
+startMusic();
 
-                const fresh = countdownText.cloneNode(true);
-                fresh.id = 'countdown-text';
-                fresh.textContent = steps[i];
-                fresh.classList.toggle('go', steps[i] === 'GO!');
-                countdownText.replaceWith(fresh);
-                countdownText = fresh;
+const muteBtn    = document.getElementById('muteBtn');
+const sfxBtn     = document.getElementById('sfxBtn');
+const musicSlider= document.getElementById('musicSlider');
+const sfxSlider  = document.getElementById('sfxSlider');
 
-                i++;
-                if (i < steps.length) {
-                    setTimeout(showStep, 900);
-                } else {
-                    setTimeout(() => {
-                        const el = countdownOverlay.querySelector('#countdown-text');
-                        el.classList.add('fade-out');
-                        setTimeout(() => {
-                            countdownOverlay.classList.remove('active');
-                            pauseBtn.style.display = 'block'; 
-                            onDone();
-                        }, 550);
-                    }, 600);
-                }
-            }
-            showStep();
-        }
+musicSlider.value = getMusicVolume();
+sfxSlider.value   = getSFXVolume();
 
-        playBtn.addEventListener('click', () => {
-            if (gameState !== 'MENU') return;
-            const def = player.planeDefs[viewIndex];
-            if (!ownedPlanes.includes(viewIndex)) {
-                if (coins >= def.price) {
-                    playCoin();
-                    coins -= def.price;
-                    ownedPlanes.push(viewIndex);
-                    document.getElementById('menuCoinVal').innerText = coins;
-                    document.getElementById('hudCoinVal').innerText = coins;
-                    saveProgress();
-                    updateMenuUI();
-                } else {
-                    playCrash(); 
-                }
-                return;
-            } else if (viewIndex !== currentPlaneIndex) {
-                playClick();
-                currentPlaneIndex = viewIndex;
-                saveProgress();
-                updateMenuUI();
-                return;
-            }
-            playClick();
-            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
-            gameState = 'TRANSITION';
-            menuUI.style.opacity = '0';
-            menuCoinDisplay.style.opacity = '0';
-            setTimeout(() => { menuUI.style.display = 'none'; menuCoinDisplay.style.display = 'none'; }, 500);
-            hud.style.display = 'block';
-            if (isMobile && MController.showJoystick) MController.showJoystick();
-        });
+function updateAudioIcons() {
+  muteBtn.src = getMusicMuted()
+    ? 'https://cdn-icons-png.flaticon.com/512/727/727240.png'
+    : 'https://cdn-icons-png.flaticon.com/512/727/727269.png';
+  sfxBtn.src  = getSFXMuted()
+    ? 'https://cdn-icons-png.flaticon.com/512/727/727240.png'
+    : 'https://cdn-icons-png.flaticon.com/512/727/727269.png';
+}
+updateAudioIcons();
 
-        document.getElementById('go-home-btn').addEventListener('click', () => {
-            playClick();
-            gameState = 'MENU';
-            score = 0;
-            scoreVal.innerText = "0";
-            worldShiftX = 0;
-            dynamicWorldSpeed = 0.25;
-            lerpFactor = 0;
-            gameTime = 0;
-            isPaused = false;
-            pauseBtn.style.display = 'none';
-            if (isMobile) MController.reset();
-            scene.remove(player.group);
-            world.chunks.forEach(chunk => scene.remove(chunk));
-            world.obstacles.forEach(obs => { obs.geometry.dispose(); obs.material.dispose(); });
-            world.obstacles.length = 0;
-            collectables.dispose();
-            player = new Player(scene);
-            player.setPlaneType(currentPlaneIndex); 
-            world = new WorldManager(scene, isMobile);
-            collectables = new CollectableManager(scene, isMobile);
-            gameOverUI.style.display = 'none';
-            hud.style.display = 'none';
-            menuUI.style.display = 'block';
-            menuCoinDisplay.style.display = 'block';
-            updateMenuUI();
-            setTimeout(() => { menuUI.style.opacity = '1'; menuCoinDisplay.style.opacity = '1'; }, 10);
-        });
+muteBtn.addEventListener('click', () => { toggleMute(); playClick(); updateAudioIcons(); });
+sfxBtn.addEventListener( 'click', () => { toggleSFX();  if (!getSFXMuted()) playClick(); updateAudioIcons(); });
+musicSlider.addEventListener('input', e => { setMusicVolume(+e.target.value); updateAudioIcons(); });
+sfxSlider.addEventListener(  'input', e => { setSFXVolume(  +e.target.value); updateAudioIcons(); });
 
-        rebootBtn.addEventListener('click', () => {
-            playClick();
-            score = 0;
-            scoreVal.innerText = "0";
-            worldShiftX = 0;
-            dynamicWorldSpeed = 0.25;
-            lerpFactor = 1;
-            gameTime = 0;
-            isPaused = false;
-            if (isMobile) MController.reset();
-            scene.remove(player.group);
-            world.chunks.forEach(chunk => scene.remove(chunk));
-            world.obstacles.forEach(obs => { obs.geometry.dispose(); obs.material.dispose(); });
-            world.obstacles.length = 0;
-            collectables.dispose();
-            player = new Player(scene);
-            player.setPlaneType(currentPlaneIndex);
-            world = new WorldManager(scene, isMobile);
-            collectables = new CollectableManager(scene, isMobile);
-            player.group.position.x = 0;
-            gameOverUI.style.display = 'none';
-            hud.style.display = 'block';
-            pauseBtn.style.display = 'none'; 
-            if (isMobile && MController.showJoystick) MController.showJoystick();
-            gameState = 'COUNTDOWN';
-            player.setGhost(true);
-            activeController.isGhostMode = true;
-            startCountdown(() => {
-                player.setGhost(false);
-                activeController.isGhostMode = false;
-                gameState = 'PLAYING';
-            });
-        });
+// ═══════════════════════════════════════════════════════════════
+//  KEYBINDS
+// ═══════════════════════════════════════════════════════════════
+if (!isMobile) {
+  const KB_ACTIONS = [
+    { action: 'up',       label: 'MOVE UP'     },
+    { action: 'down',     label: 'MOVE DOWN'   },
+    { action: 'left',     label: 'MOVE LEFT'   },
+    { action: 'right',    label: 'MOVE RIGHT'  },
+    null, // divider
+    { action: 'pause',    label: 'PAUSE'       },
+    { action: 'restart',  label: 'RETRY'       },
+    { action: 'home',     label: 'HOME'        },
+    { action: 'settings', label: 'SETTINGS'    },
+  ];
 
-        const _planeBox = new THREE.Box3();
-        const _obsBox = new THREE.Box3();
-        const _tempVec = new THREE.Vector3();
+  let listeningAction = null;
 
-        function checkObstacleCollisions() {
-            _planeBox.setFromObject(player.hitbox);
-            for (let obs of world.obstacles) {
-                obs.getWorldPosition(_tempVec);
-                if (Math.abs(_tempVec.z) > 3) continue;
-                _obsBox.setFromObject(obs);
-                if (_planeBox.intersectsBox(_obsBox)) return true;
-            }
-            return false;
-        }
+  function renderKeybinds() {
+    const grid = document.getElementById('keybinds-grid');
+    grid.innerHTML = '';
 
-        function checkCoinCollisions() {
-            _planeBox.setFromObject(player.hitbox);
-            for (let item of collectables.items) {
-                if (!item.visible) continue; 
-                item.getWorldPosition(_tempVec);
-                if (Math.abs(_tempVec.z) > 3) continue;
-                _obsBox.setFromObject(item);
-                if (_planeBox.intersectsBox(_obsBox)) {
-                    item.visible = false;
-                    item.position.y = -999; 
-                    coins++;
-                    document.getElementById('hudCoinVal').innerText = coins;
-                    document.getElementById('menuCoinVal').innerText = coins;
-                    playCoin();
-                    saveProgress();
-                }
-            }
-        }
+    KB_ACTIONS.forEach(entry => {
+      if (!entry) {
+        const div = document.createElement('div');
+        div.className = 'kb-divider';
+        grid.appendChild(div);
+        // need two cells for the grid columns
+        const gap = document.createElement('div'); gap.className = 'kb-divider';
+        grid.appendChild(gap);
+        return;
+      }
+      const label = document.createElement('div');
+      label.className   = 'kb-action';
+      label.textContent = entry.label;
 
-        const clock = new THREE.Clock();
+      const keyEl = document.createElement('div');
+      keyEl.className   = 'kb-key';
+      const raw  = Controller.binds[entry.action] || '?';
+      keyEl.textContent = raw.length === 1 ? raw.toUpperCase() : raw;
+      if (listeningAction === entry.action) keyEl.classList.add('listening');
 
-        function animate() {
-            requestAnimationFrame(animate);
-            if (gameState === 'GAMEOVER') return;
-            const delta = clock.getDelta(); 
-            if (isPaused) {
-                renderer.render(scene, camera);
-                return;
-            }
-            gameTime += delta; 
-            const t = gameTime;
-            world.update(dynamicWorldSpeed, worldShiftX, t);
-            collectables.update(dynamicWorldSpeed, worldShiftX, t);
+      keyEl.addEventListener('click', () => {
+        listeningAction = entry.action;
+        renderKeybinds();
+      });
 
-            if (gameState === 'MENU') {
-                camera.position.lerp(new THREE.Vector3(2, 4, 8), 0.05);
-                camera.lookAt(player.group.position);
-                player.updateMenuAnimation(t);
-            } 
-            else if (gameState === 'TRANSITION') {
-                lerpFactor += 0.015;
-                player.group.position.x = THREE.MathUtils.lerp(-5, 0, lerpFactor);
-                camera.position.lerp(new THREE.Vector3(0, 4.5, 5), 0.05);
-                camera.lookAt(player.group.position);
-                if (lerpFactor >= 1) {
-                    gameState = 'COUNTDOWN';
-                    player.setGhost(true);
-                    activeController.isGhostMode = true;
-                    startCountdown(() => {
-                        player.setGhost(false);
-                        activeController.isGhostMode = false;
-                        gameState = 'PLAYING';
-                    });
-                }
-            } 
-            else if (gameState === 'COUNTDOWN') {
-                dynamicWorldSpeed = Math.min(0.25 + (score * 0.0005), 0.8);
-                score += dynamicWorldSpeed * 0.1;
-                scoreVal.innerText = Math.floor(score);
-                const ctrl = activeController.update(player.group, worldShiftX, delta);
-                worldShiftX = ctrl.worldShiftX;
-                player.updateFlightAnimation(t, ctrl);
-                player.updateGlitch(t);
-                camera.position.set(0, player.group.position.y + 1.5, 5);
-                camera.lookAt(0, player.group.position.y, -2);
-                checkCoinCollisions(); 
-            }
-            else if (gameState === 'PLAYING') {
-                dynamicWorldSpeed = Math.min(0.25 + (score * 0.0005), 0.8);
-                score += dynamicWorldSpeed * 0.1;
-                scoreVal.innerText = Math.floor(score);
-                const ctrl = activeController.update(player.group, worldShiftX, delta);
-                worldShiftX = ctrl.worldShiftX;
-                player.updateFlightAnimation(t, ctrl);
-                camera.position.set(0, player.group.position.y + 1.5, 5);
-                camera.lookAt(0, player.group.position.y, -2);
-                checkCoinCollisions(); 
-                if (ctrl.isCrashed || ctrl.isGroundHit || checkObstacleCollisions()) {
-                    playCrash();
-                    gameState = 'CRASHING';
-                    pauseBtn.style.display = 'none';
-                    if (isMobile) MController.disable();
-                }
-            }
-            else if (gameState === 'CRASHING') {
-                player.updateCrashAnimation(delta);
-                camera.position.set(0, player.group.position.y + 1.5, 5);
-                camera.lookAt(0, player.group.position.y, -2);
-                if (player.group.position.y <= 0 && gameOverUI.style.display !== 'block') {
-                    if (score > highScore) {
-                        highScore = score;
-                        localStorage.setItem('paperPlane_highScore', highScore);
-                        document.getElementById('bestVal').innerText = Math.floor(highScore);
-                    }
-                    gameOverUI.style.display = 'block';
-                    hud.style.display = 'none';
-                }
-            }
-            renderer.render(scene, camera);
-        }
-        animate();
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    </script>
+      grid.appendChild(label);
+      grid.appendChild(keyEl);
+    });
+
+    syncKeyBadges();
+  }
+
+  function syncKeyBadges() {
+    const b = Controller.binds;
+    const safe = (k) => (k && k.length === 1) ? k.toUpperCase() : k;
+    document.querySelectorAll('[id^="kb-badge-"]').forEach(el => {
+      const type = el.id.replace('kb-badge-', '').replace(/-/g, '');
+      const map = { home: 'home', settings: 'settings', restart: 'restart', gohome: 'home', gosettings: 'settings' };
+      if (map[type]) el.textContent = safe(b[map[type]]);
+    });
+    document.getElementById('controls-hint').textContent =
+      `[ ${safe(b.up)} / ${safe(b.left)} / ${safe(b.down)} / ${safe(b.right)} ] — NAVIGATE`;
+  }
+
+  renderKeybinds();
+
+  document.getElementById('resetBindsBtn').addEventListener('click', () => {
+    Controller.resetBinds();
+    listeningAction = null;
+    renderKeybinds();
+    playClick();
+  });
+
+  // Listen for remap key
+  window.addEventListener('keydown', (e) => {
+    if (!listeningAction) return;
+    e.preventDefault();
+    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    Controller.rebind(listeningAction, key);
+    listeningAction = null;
+    renderKeybinds();
+  });
+
+  // Global hotkeys when modal/pause closed
+  window.addEventListener('keydown', (e) => {
+    if (listeningAction) return;
+    if (settingsModal.style.display === 'block') return;
+
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+    if (k === Controller.binds.pause && gameState === 'PLAYING') {
+      togglePause(); return;
+    }
+    if (k === 'enter' && gameState === 'MENU') {
+      playBtn.click(); return;
+    }
+    if (k === Controller.binds.restart && gameState === 'GAMEOVER') {
+      rebootBtn.click(); return;
+    }
+    if (k === Controller.binds.home && (gameState === 'GAMEOVER' || gameState === 'PLAYING' || isPaused)) {
+      goHome(); return;
+    }
+    if (k === Controller.binds.settings) {
+      openSettings(); return;
+    }
+  });
+} else {
+  // Mobile: hide keybinds tab
+  document.querySelector('[data-tab="keybinds"]').style.display = 'none';
+  document.getElementById('controls-hint').textContent = 'TOUCH TO STEER';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MOBILE CONTROL SELECTION
+// ═══════════════════════════════════════════════════════════════
+function renderMobileCtrlOpts() {
+  document.querySelectorAll('.ctrl-opt').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.mode === MController.mode);
+  });
+}
+renderMobileCtrlOpts();
+
+document.querySelectorAll('.ctrl-opt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    MController.setMode(btn.dataset.mode);
+    renderMobileCtrlOpts();
+    playClick();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  SETTINGS OPEN / CLOSE
+// ═══════════════════════════════════════════════════════════════
+function openSettings() {
+  playClick();
+  settingsModal.style.display = 'block';
+  if (!isMobile) renderKeybinds();
+}
+function closeSettings() {
+  playClick();
+  settingsModal.style.display = 'none';
+}
+
+bindTouchAndClick(mainSettingsBtn,                         openSettings);
+bindTouchAndClick(document.getElementById('go-settings-btn'),   openSettings);
+bindTouchAndClick(document.getElementById('pause-settings-btn'),openSettings);
+bindTouchAndClick(document.getElementById('closeSettingsBtn'),   closeSettings);
+
+// ═══════════════════════════════════════════════════════════════
+//  PLANE SELECTOR
+// ═══════════════════════════════════════════════════════════════
+function updateMenuUI() {
+  const def = player.planeDefs[viewIndex];
+  planeNameEl.textContent = def.name;
+  player.setPlaneType(viewIndex);
+
+  if (ownedPlanes.includes(viewIndex)) {
+    playBtnText.textContent    = (viewIndex === currentPlane) ? 'PLAY' : 'SELECT';
+    playBtn.className          = '';
+    playBtn.style.borderColor  = '';
+    playBtn.style.color        = '';
+  } else {
+    playBtnText.textContent   = `⬡ BUY ${def.price}`;
+    playBtn.className         = 'btn-gold';
+    playBtn.style.borderColor = '';
+    playBtn.style.color       = '';
+  }
+}
+updateMenuUI();
+
+document.getElementById('prevPlaneBtn').addEventListener('click', () => {
+  playClick();
+  viewIndex = (viewIndex - 1 + player.planeDefs.length) % player.planeDefs.length;
+  updateMenuUI();
+});
+document.getElementById('nextPlaneBtn').addEventListener('click', () => {
+  playClick();
+  viewIndex = (viewIndex + 1) % player.planeDefs.length;
+  updateMenuUI();
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  PAUSE
+// ═══════════════════════════════════════════════════════════════
+// FIX: pause screen starts display:none — never shown on menu
+function togglePause(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  if (gameState !== 'PLAYING' && gameState !== 'COUNTDOWN') return;
+  playClick();
+  isPaused = !isPaused;
+  pauseBtn.src = isPaused
+    ? 'https://cdn-icons-png.flaticon.com/512/724/724927.png'
+    : 'https://cdn-icons-png.flaticon.com/512/151/151859.png';
+  pauseScreen.style.display = isPaused ? 'flex' : 'none';
+}
+
+pauseBtn.addEventListener('click',      togglePause);
+pauseBtn.addEventListener('touchstart', togglePause, { passive: false });
+
+document.getElementById('resume-btn').addEventListener('click', togglePause);
+
+// ═══════════════════════════════════════════════════════════════
+//  COUNTDOWN
+// ═══════════════════════════════════════════════════════════════
+function startCountdown(onDone) {
+  const steps = ['3', '2', '1', 'GO!'];
+  let i = 0;
+  countdownOvr.classList.add('active');
+
+  function showStep() {
+    playBeep(steps[i] === 'GO!');
+    const fresh = countdownText.cloneNode(true);
+    fresh.id            = 'countdown-text';
+    fresh.textContent   = steps[i];
+    fresh.classList.toggle('go', steps[i] === 'GO!');
+    countdownText.replaceWith(fresh);
+    countdownText = fresh;
+    i++;
+
+    if (i < steps.length) {
+      setTimeout(showStep, 900);
+    } else {
+      setTimeout(() => {
+        const el = countdownOvr.querySelector('#countdown-text');
+        el.classList.add('fade-out');
+        setTimeout(() => {
+          countdownOvr.classList.remove('active');
+          // Show pause btn only now that game is active
+          pauseBtn.style.display = 'block';
+          diffLabel.style.display= 'block';
+          onDone();
+        }, 500);
+      }, 600);
+    }
+  }
+  showStep();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PLAY BUTTON
+// ═══════════════════════════════════════════════════════════════
+playBtn.addEventListener('click', () => {
+  if (gameState !== 'MENU') return;
+  const def = player.planeDefs[viewIndex];
+
+  // Buy
+  if (!ownedPlanes.includes(viewIndex)) {
+    if (coins >= def.price) {
+      playCoin();
+      vibrate([30]);
+      triggerShake(0.1, 0.05);
+      coins -= def.price;
+      ownedPlanes.push(viewIndex);
+      saveProgress();
+      syncHUD();
+      updateMenuUI();
+    } else {
+      playCrash();
+      vibrate([50, 30, 50]);
+    }
+    return;
+  }
+
+  // Select without playing
+  if (viewIndex !== currentPlane) {
+    playClick();
+    currentPlane = viewIndex;
+    saveProgress();
+    updateMenuUI();
+    return;
+  }
+
+  // START GAME
+  playClick();
+  if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
+  gameState = 'TRANSITION';
+  menuUI.style.opacity  = '0';
+  menuStats.style.opacity = '0';
+  mainSettingsBtn.style.display = 'none';
+  setTimeout(() => { menuUI.style.display = 'none'; menuStats.style.display = 'none'; }, 600);
+  hud.style.display = 'block';
+  sessionCoins = 0;
+  if (isMobile) MController.init(), MController.showControls();
+  activeController.init();
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  GO HOME
+// ═══════════════════════════════════════════════════════════════
+function goHome() {
+  playClick();
+  gameState     = 'MENU';
+  score         = 0;
+  sessionCoins  = 0;
+  worldShiftX   = 0;
+  dynamicSpeed  = 0.25;
+  lerpFactor    = 0;
+  gameTime      = 0;
+  isPaused      = false;
+
+  // Reset camera
+  camera.fov    = 75;
+  camera.updateProjectionMatrix();
+
+  // FIX: hide pause screen and pause btn — only visible when in-game
+  pauseBtn.style.display    = 'none';
+  pauseScreen.style.display = 'none';
+  diffLabel.style.display   = 'none';
+  ghostIndicator.style.display = 'none';
+  pauseBtn.src = 'https://cdn-icons-png.flaticon.com/512/151/151859.png';
+
+  if (isMobile) MController.reset();
+
+  // Dispose old game objects
+  scene.remove(player.group);
+  world.chunks.forEach(c => scene.remove(c));
+  world.obstacles.forEach(o => { o.geometry.dispose(); o.material.dispose(); });
+  world.obstacles.length = 0;
+  collectables.dispose();
+  clearPowerUpHUD();
+
+  initGameObjects();
+
+  gameOverUI.style.display = 'none';
+  hud.style.display        = 'none';
+  menuUI.style.display     = 'block';
+  menuStats.style.display  = 'block';
+  mainSettingsBtn.style.display = 'block';
+  syncHUD();
+  updateMenuUI();
+  setTimeout(() => { menuUI.style.opacity = '1'; menuStats.style.opacity = '1'; }, 10);
+}
+
+bindTouchAndClick(document.getElementById('go-home-btn'),    goHome);
+bindTouchAndClick(document.getElementById('pause-home-btn'), goHome);
+
+// ═══════════════════════════════════════════════════════════════
+//  RETRY
+// ═══════════════════════════════════════════════════════════════
+rebootBtn.addEventListener('click', () => {
+  playClick();
+  score         = 0;
+  sessionCoins  = 0;
+  worldShiftX   = 0;
+  dynamicSpeed  = 0.25;
+  lerpFactor    = 1;
+  gameTime      = 0;
+  isPaused      = false;
+  camera.fov    = 75;
+  camera.updateProjectionMatrix();
+
+  if (isMobile) MController.reset();
+
+  // Dispose
+  scene.remove(player.group);
+  world.chunks.forEach(c => scene.remove(c));
+  world.obstacles.forEach(o => { o.geometry.dispose(); o.material.dispose(); });
+  world.obstacles.length = 0;
+  collectables.dispose();
+  clearPowerUpHUD();
+
+  initGameObjects();
+  player.group.position.set(0, 0, 0);
+  gameOverUI.style.display = 'none';
+  hud.style.display        = 'block';
+  pauseBtn.style.display   = 'none'; // hidden until countdown ends
+  ghostIndicator.style.display = 'none';
+  diffLabel.style.display  = 'none';
+  syncHUD();
+
+  if (isMobile) MController.showControls();
+  activeController.init();
+
+  gameState = 'COUNTDOWN';
+  player.setGhost(true);
+  activeController.isGhostMode = true;
+  clock.getDelta(); // flush
+
+  startCountdown(() => {
+    player.setGhost(false);
+    activeController.isGhostMode = false;
+    ghostIndicator.style.display = 'none';
+    gameState = 'PLAYING';
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  POWER-UP HUD
+// ═══════════════════════════════════════════════════════════════
+const powerupHud = document.getElementById('powerup-hud');
+
+function clearPowerUpHUD() {
+  if (powerupHud) powerupHud.innerHTML = '';
+}
+
+function renderPowerUpHUD() {
+  if (!powerupHud) return;
+  powerupHud.innerHTML = '';
+  collectables.activePowerUps.forEach(({ id, timeLeft }) => {
+    const def = POWERUP_DEFS.find(d => d.id === id);
+    if (!def) return;
+    const pct  = Math.max(0, timeLeft / def.duration) * 100;
+    const hex  = '#' + def.color.toString(16).padStart(6, '0');
+
+    const pill = document.createElement('div');
+    pill.className = 'pu-pill';
+    pill.innerHTML = `
+      <span class="pu-label">${def.label}</span>
+      <div class="pu-bar-wrap">
+        <div class="pu-bar" style="width:${pct.toFixed(1)}%;background:${hex};box-shadow:0 0 6px ${hex};"></div>
+      </div>
+      <span class="pu-time">${timeLeft.toFixed(1)}s</span>
+    `;
+    powerupHud.appendChild(pill);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COLLISION DETECTION
+// ═══════════════════════════════════════════════════════════════
+const _planeBox = new THREE.Box3();
+const _obsBox   = new THREE.Box3();
+const _tmpVec   = new THREE.Vector3();
+
+function checkObstacleCollisions() {
+  // SHIELD and GHOST_TRAIL and TURBO_FLIP all block crash-on-obstacle
+  if (player.isGhost) return false;
+  if (collectables.hasPowerUp('SHIELD'))      return false;
+  if (collectables.hasPowerUp('GHOST_TRAIL')) return false;
+  if (collectables.hasPowerUp('TURBO_FLIP'))  return false;
+
+  _planeBox.setFromObject(player.hitbox);
+  for (const obs of world.obstacles) {
+    obs.getWorldPosition(_tmpVec);
+    if (Math.abs(_tmpVec.z) > 3) continue;
+    _obsBox.setFromObject(obs);
+    if (_planeBox.intersectsBox(_obsBox)) return true;
+  }
+  return false;
+}
+
+function checkCoinCollisions() {
+  _planeBox.setFromObject(player.hitbox);
+
+  // MAGNET: expand detection box to magnetRadius
+  const magnetActive = collectables.hasPowerUp('MAGNET');
+  const magnetRadius = 6;
+  if (magnetActive) {
+    _planeBox.min.x -= magnetRadius;
+    _planeBox.min.y -= magnetRadius * 0.5;
+    _planeBox.max.x += magnetRadius;
+    _planeBox.max.y += magnetRadius * 0.5;
+  }
+
+  const coinMult = collectables.hasPowerUp('COLLECTOR') ? 2 : 1;
+
+  for (const item of collectables.items) {
+    if (!item.visible) continue;
+    item.getWorldPosition(_tmpVec);
+    if (Math.abs(_tmpVec.z) > (magnetActive ? magnetRadius + 3 : 3)) continue;
+
+    if (item.userData.type === 'coin') {
+      _obsBox.setFromObject(item);
+      if (_planeBox.intersectsBox(_obsBox)) {
+        item.visible    = false;
+        item.position.y = -999;
+        const gained    = coinMult;
+        coins        += gained;
+        sessionCoins += gained;
+        playCoin();
+        vibrate([10]);
+        triggerShake(0.06, 0.08);
+        syncHUD();
+        saveProgress();
+      }
+    } else if (item.userData.type === 'powerup') {
+      // Power-up pickup: use tighter box
+      _obsBox.setFromObject(item);
+      _obsBox.min.subScalar(0.3); // small extra tolerance
+      _obsBox.max.addScalar(0.3);
+
+      // Re-fetch hitbox without magnet expansion for PU pickup
+      const puBox = new THREE.Box3().setFromObject(player.hitbox);
+      if (puBox.intersectsBox(_obsBox)) {
+        item.visible    = false;
+        item.position.y = -999;
+        applyPowerUp(item.userData.puId);
+      }
+    }
+  }
+}
+
+// ── Apply power-up effects ─────────────────────────────────────
+function applyPowerUp(id) {
+  playPowerUp();
+  vibrate([20, 10, 40]);
+
+  if (id === 'COIN_BURST') {
+    // Instant: +15 coins
+    const burst = 15;
+    coins        += burst;
+    sessionCoins += burst;
+    syncHUD();
+    saveProgress();
+    showPickupToast('💥 +15 COINS!', 0xff8800);
+    return;
+  }
+
+  collectables.activatePowerUp(id);
+
+  const def = POWERUP_DEFS.find(d => d.id === id);
+  showPickupToast(def ? def.label : id, def ? def.color : 0xffffff);
+
+  // Immediate side-effects that need game-state changes
+  if (id === 'GHOST_TRAIL' || id === 'SHIELD' || id === 'TURBO_FLIP') {
+    player.setGhost(true);
+    activeController.isGhostMode = true;
+    ghostIndicator.style.display = 'block';
+    ghostIndicator.textContent   =
+      id === 'TURBO_FLIP' ? '▸ TURBO FLIP' :
+      id === 'SHIELD'     ? '▸ SHIELDED'   : '▸ GHOST';
+  }
+  if (id === 'TINY') {
+    player.group.scale.set(0.5, 0.5, 0.5);
+  }
+}
+
+// ── Toast notification ─────────────────────────────────────────
+function showPickupToast(label, colorHex) {
+  const hex = '#' + colorHex.toString(16).padStart(6, '0');
+  const el  = document.createElement('div');
+  el.className   = 'pu-toast';
+  el.textContent = label;
+  el.style.color = hex;
+  el.style.textShadow = `0 0 12px ${hex}`;
+  document.body.appendChild(el);
+  // Animate out
+  setTimeout(() => el.classList.add('pu-toast-out'), 1200);
+  setTimeout(() => el.remove(), 1700);
+}
+
+// ── Handle power-up expiry ─────────────────────────────────────
+function handlePowerUpExpiry(expiredIds) {
+  expiredIds.forEach(id => {
+    if (id === 'GHOST_TRAIL' || id === 'TURBO_FLIP') {
+      // Only remove ghost if SHIELD is also gone
+      if (!collectables.hasPowerUp('SHIELD') &&
+          !collectables.hasPowerUp('GHOST_TRAIL') &&
+          !collectables.hasPowerUp('TURBO_FLIP')) {
+        player.setGhost(false);
+        activeController.isGhostMode = false;
+        ghostIndicator.style.display = 'none';
+      }
+    }
+    if (id === 'SHIELD') {
+      if (!collectables.hasPowerUp('GHOST_TRAIL') &&
+          !collectables.hasPowerUp('TURBO_FLIP')) {
+        player.setGhost(false);
+        activeController.isGhostMode = false;
+        ghostIndicator.style.display = 'none';
+      }
+    }
+    if (id === 'TINY') {
+      player.group.scale.set(1, 1, 1);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GAME LOOP
+// ═══════════════════════════════════════════════════════════════
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (gameState === 'GAMEOVER') return;
+
+  const delta = Math.min(clock.getDelta(), 0.05); // cap at 50ms to prevent tunnelling
+  if (isPaused) { renderer.render(scene, camera); return; }
+
+  gameTime += delta;
+  const t = gameTime;
+
+  // Tick power-up timers and handle expiry
+  if (gameState === 'PLAYING') {
+    const expired = collectables.tickPowerUps(delta);
+    if (expired.length) handlePowerUpExpiry(expired);
+    renderPowerUpHUD();
+  }
+
+  // ── Speed modifiers from power-ups ───────────────────────────
+  let effectiveSpeed = dynamicSpeed;
+  if (collectables.hasPowerUp('SPEED'))      effectiveSpeed *= 2.0;
+  if (collectables.hasPowerUp('SLOW_MO'))    effectiveSpeed *= 0.5;
+  if (collectables.hasPowerUp('TURBO_FLIP')) effectiveSpeed *= 3.0;
+
+  // Always scroll world (even in countdown so it feels alive)
+  world.distance = score;
+  world.update(effectiveSpeed, worldShiftX, t);
+  collectables.update(effectiveSpeed, worldShiftX, t, score);
+
+  // ─── MENU ────────────────────────────────────────────────────
+  if (gameState === 'MENU') {
+    camera.position.lerp(new THREE.Vector3(2, 4, 8), 0.05);
+    camera.lookAt(player.group.position);
+    player.updateMenuAnimation(t);
+
+  // ─── TRANSITION ──────────────────────────────────────────────
+  } else if (gameState === 'TRANSITION') {
+    lerpFactor += 0.015;
+    player.group.position.x = THREE.MathUtils.lerp(-5, 0, lerpFactor);
+    camera.position.lerp(new THREE.Vector3(0, 4.5, 5), 0.05);
+    camera.lookAt(player.group.position);
+    if (lerpFactor >= 1) {
+      gameState = 'COUNTDOWN';
+      player.setGhost(true);
+      activeController.isGhostMode = true;
+      ghostIndicator.style.display = 'block';
+      clock.getDelta();
+      startCountdown(() => {
+        player.setGhost(false);
+        activeController.isGhostMode = false;
+        ghostIndicator.style.display = 'none';
+        gameState = 'PLAYING';
+      });
+    }
+
+  // ─── COUNTDOWN ───────────────────────────────────────────────
+  } else if (gameState === 'COUNTDOWN') {
+    dynamicSpeed = 0.25;
+    const ctrl   = activeController.update(player.group, worldShiftX, delta);
+    worldShiftX  = ctrl.worldShiftX;
+    player.updateFlightAnimation(t, ctrl);
+    player.updateGlitch(t);
+    camera.position.set(0, player.group.position.y + 1.5, 5);
+    camera.lookAt(0, player.group.position.y, -2);
+
+  // ─── PLAYING ─────────────────────────────────────────────────
+  } else if (gameState === 'PLAYING') {
+    // Speed ramp: 0.25 → 0.8 over 2000 m
+    dynamicSpeed = Math.min(0.25 + score * 0.000275, 0.8);
+    score       += effectiveSpeed * 6 * delta;
+
+    document.getElementById('scoreVal').textContent = Math.floor(score);
+    updateDiffLabel();
+    updateSpeedBar();
+
+    // FOV stretch with speed
+    const targetFov = 75 + (effectiveSpeed - 0.25) * 30;
+    camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, 0.05);
+    camera.updateProjectionMatrix();
+
+    const ctrl = activeController.update(player.group, worldShiftX, delta);
+    worldShiftX = ctrl.worldShiftX;
+    player.updateFlightAnimation(t, ctrl);
+    if (player.isGhost) player.updateGlitch(t);
+
+    let camX = 0, camY = player.group.position.y + 1.5;
+    if (shakeDuration > 0) {
+      camX += (Math.random() - 0.5) * shakeIntensity;
+      camY += (Math.random() - 0.5) * shakeIntensity;
+      shakeDuration -= delta;
+      if (isMobile) vibrate([8]);
+    }
+    camera.position.set(camX, camY, 5);
+    camera.lookAt(0, player.group.position.y, -2);
+
+    checkCoinCollisions();
+
+    // BUG FIX: ctrl.isCrashed can fire when ghost mode is on (ground hit).
+    // Guard it against active shield/ghost power-ups as well.
+    const shieldActive = collectables.hasPowerUp('SHIELD') ||
+                         collectables.hasPowerUp('GHOST_TRAIL') ||
+                         collectables.hasPowerUp('TURBO_FLIP');
+    const groundCrash  = !shieldActive && (ctrl.isCrashed || ctrl.isGroundHit);
+
+    if (groundCrash || checkObstacleCollisions()) {
+      // Clear power-ups on crash
+      collectables.activePowerUps = [];
+      clearPowerUpHUD();
+      player.setGhost(false);
+      player.group.scale.set(1, 1, 1); // reset TINY
+      activeController.isGhostMode = false;
+      ghostIndicator.style.display = 'none';
+
+      playCrash();
+      vibrate([80, 30, 80, 30, 150]);
+      triggerShake(0.6, 0.9);
+      gameState = 'CRASHING';
+      pauseBtn.style.display   = 'none';
+      diffLabel.style.display  = 'none';
+      if (isMobile) MController.disable();
+    }
+
+  // ─── CRASHING ────────────────────────────────────────────────
+  } else if (gameState === 'CRASHING') {
+    player.updateCrashAnimation(delta);
+
+    let camX = 0, camY = player.group.position.y + 1.5;
+    if (shakeDuration > 0) {
+      camX += (Math.random() - 0.5) * shakeIntensity;
+      camY += (Math.random() - 0.5) * shakeIntensity;
+      shakeDuration -= delta;
+    }
+    camera.position.set(camX, camY, 5);
+    camera.lookAt(0, player.group.position.y, -2);
+
+    if (player.group.position.y <= 0 && gameOverUI.style.display !== 'block') {
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('paperPlane_highScore', highScore);
+      }
+      // Populate game-over stats
+      document.getElementById('go-score').textContent = Math.floor(score) + 'm';
+      document.getElementById('go-best').textContent  = Math.floor(highScore) + 'm';
+      document.getElementById('go-coins').textContent = sessionCoins;
+      syncHUD();
+      gameOverUI.style.display = 'block';
+      hud.style.display        = 'none';
+      gameState                = 'GAMEOVER';
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
 </body>
 </html>
