@@ -1,88 +1,116 @@
 /**
- * Controller Logic for 3D Paper Plane
- * Manages Key States, World Horizontal Movement, and Plane Vertical Movement
+ * ═══════════════════════════════════════════════════════════════
+ *  controller.js — Desktop Keyboard Controller
+ *  Supports custom remappable keybinds stored in localStorage
+ * ═══════════════════════════════════════════════════════════════
  */
 
+// ── Default keybind map ─────────────────────────────────────────
+const DEFAULT_BINDS = {
+  up:       'w',
+  down:     's',
+  left:     'a',
+  right:    'd',
+  pause:    'Escape',
+  restart:  'r',
+  home:     'h',
+  settings: 'o',
+};
+
+/**
+ * Load keybinds from localStorage, falling back to defaults.
+ * Stored as a flat object: { up: 'w', down: 's', ... }
+ */
+function loadBinds() {
+  try {
+    const saved = localStorage.getItem('paperPlane_keybinds');
+    return saved ? { ...DEFAULT_BINDS, ...JSON.parse(saved) } : { ...DEFAULT_BINDS };
+  } catch {
+    return { ...DEFAULT_BINDS };
+  }
+}
+
+function saveBinds(binds) {
+  localStorage.setItem('paperPlane_keybinds', JSON.stringify(binds));
+}
+
 export const Controller = {
-    // --- STATE ---
-    keys: {
-        w: false,
-        s: false,
-        a: false,
-        d: false
-    },
-    
-    // --- CONFIGURATION ---
-    config: {
-        moveSpeed: 0.22,      // Speed of world shifting (A/D)
-        verticalSpeed: 0.1,  // Speed of plane climbing/diving (W/S)
-        maxHeight: 6,        // Reduced Ceiling limit to prevent escaping pillars
-        minHeight: 0,         // Ground level
-        // FIX 5: Minimum height enforced during ghost/glitch mode so the plane
-        // cannot fly below ground level even when invincible.
-        ghostMinHeight: 0.5,
-        chunkSize: 40         // Used for world wrapping
-    },
+  // ── Runtime state ─────────────────────────────────────────────
+  keys: { up: false, down: false, left: false, right: false },
+  binds: loadBinds(),
 
-    // FIX 5: Set by the game loop when ghost mode is active
-    isGhostMode: false,
+  // ── Config ────────────────────────────────────────────────────
+  config: {
+    moveSpeed:     0.22,
+    verticalSpeed: 0.10,
+    maxHeight:     6,
+    minHeight:     0,
+    ghostMinHeight:0.5,
+    chunkSize:     40,
+  },
 
-    // --- INITIALIZATION ---
-    init() {
-        window.addEventListener('keydown', (e) => this.handleKey(e, true));
-        window.addEventListener('keyup', (e) => this.handleKey(e, false));
-    },
+  // Set to true by game loop during ghost/invincibility window
+  isGhostMode: false,
 
-    handleKey(event, isPressed) {
-        const key = event.key.toLowerCase();
-        if (Object.keys(this.keys).includes(key)) {
-            this.keys[key] = isPressed;
-        }
-    },
+  // ── Initialise keyboard listeners ────────────────────────────
+  init() {
+    window.addEventListener('keydown', (e) => this._handleKey(e, true));
+    window.addEventListener('keyup',   (e) => this._handleKey(e, false));
+  },
 
-    // --- MOVEMENT LOGIC ---
-    update(playerGroup, currentWorldShiftX, delta) {
-        let nextWorldShiftX = currentWorldShiftX;
-        const scale = delta * 60; // Normalise to 60fps so speed is frame-rate independent
+  _handleKey(event, isPressed) {
+    const k = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    if (k === this.binds.up)    { this.keys.up    = isPressed; event.preventDefault(); }
+    if (k === this.binds.down)  { this.keys.down  = isPressed; event.preventDefault(); }
+    if (k === this.binds.left)  { this.keys.left  = isPressed; event.preventDefault(); }
+    if (k === this.binds.right) { this.keys.right = isPressed; event.preventDefault(); }
+  },
 
-        // 1. Horizontal Movement (Shifting the world via A/D)
-        if (this.keys.a) nextWorldShiftX += this.config.moveSpeed * scale;
-        if (this.keys.d) nextWorldShiftX -= this.config.moveSpeed * scale;
+  // ── Rebind an action (called from Settings UI) ───────────────
+  rebind(action, newKey) {
+    this.binds[action] = newKey;
+    saveBinds(this.binds);
+  },
 
-        // World Wrapping Logic
-        if (nextWorldShiftX > this.config.chunkSize) nextWorldShiftX -= this.config.chunkSize;
-        if (nextWorldShiftX < -this.config.chunkSize) nextWorldShiftX += this.config.chunkSize;
+  resetBinds() {
+    this.binds = { ...DEFAULT_BINDS };
+    saveBinds(this.binds);
+  },
 
-        // 2. Vertical Movement (Moving the plane via W/S)
-        if (this.keys.w && playerGroup.position.y < this.config.maxHeight) {
-            playerGroup.position.y += this.config.verticalSpeed * scale;
-        }
-        if (this.keys.s) {
-            playerGroup.position.y -= this.config.verticalSpeed * scale;
-        }
+  getDefaultBinds() { return { ...DEFAULT_BINDS }; },
 
-        // FIX 5: Enforce floor barrier during ghost mode — player cannot go
-        // below ghostMinHeight while invincible, preventing ground clipping.
-        const floorLimit = this.isGhostMode
-            ? this.config.ghostMinHeight
-            : this.config.minHeight;
+  // ── Per-frame update ─────────────────────────────────────────
+  update(playerGroup, currentWorldShiftX, delta) {
+    const scale = delta * 60; // Normalise to 60 fps
+    let nextX = currentWorldShiftX;
 
-        if (playerGroup.position.y < floorLimit) {
-            playerGroup.position.y = floorLimit;
-        }
+    // Horizontal
+    if (this.keys.left)  nextX += this.config.moveSpeed * scale;
+    if (this.keys.right) nextX -= this.config.moveSpeed * scale;
 
-        // 3. Ground Touch Detection (only triggers a crash outside ghost mode)
-        const isCrashed = !this.isGhostMode && playerGroup.position.y <= this.config.minHeight;
+    // World wrapping
+    if (nextX >  this.config.chunkSize) nextX -= this.config.chunkSize;
+    if (nextX < -this.config.chunkSize) nextX += this.config.chunkSize;
 
-        // 4. Calculate Visual Rotations (Banking and Pitching)
-        const targetBank = (this.keys.a ? 0.6 : this.keys.d ? -0.6 : 0);
-        const targetPitch = (this.keys.w ? -0.3 : this.keys.s ? 0.3 : 0);
+    // Vertical
+    if (this.keys.up   && playerGroup.position.y < this.config.maxHeight)
+      playerGroup.position.y += this.config.verticalSpeed * scale;
+    if (this.keys.down)
+      playerGroup.position.y -= this.config.verticalSpeed * scale;
 
-        return {
-            worldShiftX: nextWorldShiftX,
-            isCrashed: isCrashed,
-            targetBank: targetBank,
-            targetPitch: targetPitch
-        };
-    }
+    // Floor clamp
+    const floor = this.isGhostMode ? this.config.ghostMinHeight : this.config.minHeight;
+    if (playerGroup.position.y < floor) playerGroup.position.y = floor;
+
+    // Crash detection (only outside ghost window)
+    const isCrashed = !this.isGhostMode && playerGroup.position.y <= this.config.minHeight;
+
+    return {
+      worldShiftX: nextX,
+      isCrashed,
+      isGroundHit: isCrashed,
+      targetBank:  this.keys.left  ?  0.6 : this.keys.right ? -0.6 : 0,
+      targetPitch: this.keys.up    ? -0.3 : this.keys.down  ?  0.3 : 0,
+    };
+  },
 };
