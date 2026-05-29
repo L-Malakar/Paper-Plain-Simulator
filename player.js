@@ -1,23 +1,31 @@
 /**
  * ═══════════════════════════════════════════════════════════════
  *  player.js — Paper Plane Player
- *  Manages geometry, hitbox, ghost mode, crash animation
+ *  Manages geometry, hitbox, ghost mode, crash animation, map skin
  * ═══════════════════════════════════════════════════════════════
  */
 
 import * as THREE from 'https://unpkg.com/three@0.136.0/build/three.module.js';
 
+// Accent colours per map skin
+const SKIN_ACCENTS = {
+  classic: { accent: 0x00ff88, ghost: 0x88ffcc },
+  night:   { accent: 0x00e5ff, ghost: 0x7c4dff },
+};
+
 export class Player {
   constructor(scene) {
     this.group = new THREE.Group();
+    this._mapSkin = 'night';
 
     // ── Shared materials ───────────────────────────────────────
     this.paperMat = new THREE.MeshStandardMaterial({
       color: 0xe8eef4, side: THREE.DoubleSide, flatShading: true,
+      emissive: 0x1a2a3a, emissiveIntensity: 0.3,
     });
 
     this.ghostMat = new THREE.MeshStandardMaterial({
-      color: 0x00ff88, side: THREE.DoubleSide, flatShading: true,
+      color: SKIN_ACCENTS.night.accent, side: THREE.DoubleSide, flatShading: true,
       transparent: true, opacity: 0, wireframe: true,
     });
 
@@ -36,7 +44,7 @@ export class Player {
     for (let i = 0; i < 45; i += 3) {
       const theta  = Math.random() * 2 * Math.PI;
       const phi    = Math.acos(2 * Math.random() - 1);
-      const radius = 0.15 + Math.random() * 0.05;
+      const radius = 0.25 + Math.random() * 0.15;
       this.crumpleTargets[i]   = radius * Math.sin(phi) * Math.cos(theta);
       this.crumpleTargets[i+1] = radius * Math.sin(phi) * Math.sin(theta);
       this.crumpleTargets[i+2] = radius * Math.cos(phi);
@@ -57,6 +65,28 @@ export class Player {
     this.ghostMesh = new THREE.Mesh(planeGeo.clone(), this.ghostMat);
     this.ghostMesh.rotation.y = Math.PI;
     this.group.add(this.ghostMesh);
+
+    // ── Engine glow ────────────────────────────────────────────
+    this.engineGlow = new THREE.PointLight(SKIN_ACCENTS.night.accent, 0.6, 4);
+    this.engineGlow.position.set(0, 0, 0.5);
+    this.group.add(this.engineGlow);
+
+    // ── Trail afterimages (group children, fixed local offsets) ─
+    this.trail = [];
+    for (let i = 0; i < 3; i++) {
+      const tMesh = new THREE.Mesh(
+        planeGeo.clone(),
+        new THREE.MeshBasicMaterial({
+          color: SKIN_ACCENTS.night.accent, transparent: true, opacity: 0,
+          wireframe: true, side: THREE.DoubleSide,
+        })
+      );
+      tMesh.rotation.y = Math.PI;
+      tMesh.position.z = (i + 1) * 0.22;
+      tMesh.visible = false;
+      this.group.add(tMesh);
+      this.trail.push({ mesh: tMesh });
+    }
 
     // ── Plane type definitions ─────────────────────────────────
     this.planeDefs = [
@@ -85,9 +115,20 @@ export class Player {
     this.isGhost       = false;
   }
 
+  // ── Apply map skin colours ────────────────────────────────────
+  setMapSkin(skinId) {
+    this._mapSkin = skinId;
+    const colors = SKIN_ACCENTS[skinId] || SKIN_ACCENTS.night;
+    this.ghostMat.color.setHex(colors.accent);
+    if (!this.isGhost) {
+      this.engineGlow.color.setHex(colors.accent);
+    }
+    this.trail.forEach(t => t.mesh.material.color.setHex(colors.accent));
+  }
+
   // ── Set plane type (scales geometry) ─────────────────────────
   setPlaneType(index) {
-    const def     = this.planeDefs[index];
+    const def      = this.planeDefs[index];
     const newVerts = new Float32Array(this.absoluteBaseVerts);
 
     for (let i = 0; i < 45; i += 3) {
@@ -108,6 +149,13 @@ export class Player {
     for (let i = 0; i < 45; i++) gpos[i] = newVerts[i];
     this.ghostMesh.geometry.attributes.position.needsUpdate = true;
 
+    // Sync trail meshes
+    this.trail.forEach(t => {
+      const tp = t.mesh.geometry.attributes.position.array;
+      for (let i = 0; i < 45; i++) tp[i] = newVerts[i];
+      t.mesh.geometry.attributes.position.needsUpdate = true;
+    });
+
     // Resize hitbox
     this.hitbox.geometry.dispose();
     this.hitbox.geometry = new THREE.BoxGeometry(...def.hitbox);
@@ -116,11 +164,18 @@ export class Player {
   // ── Ghost / invincibility ─────────────────────────────────────
   setGhost(active) {
     this.isGhost = active;
-    if (!active) {
+    const colors = SKIN_ACCENTS[this._mapSkin] || SKIN_ACCENTS.night;
+    if (active) {
+      this.engineGlow.color.setHex(colors.ghost);
+      this.engineGlow.intensity = 1.2;
+    } else {
       this.paperMat.transparent = false;
       this.paperMat.opacity     = 1;
       this.ghostMat.opacity     = 0;
       this.ghostMesh.position.set(0, 0, 0);
+      this.engineGlow.color.setHex(colors.accent);
+      this.engineGlow.intensity = 0.6;
+      this.trail.forEach(t => { t.mesh.visible = false; t.mesh.material.opacity = 0; });
     }
   }
 
@@ -143,19 +198,40 @@ export class Player {
 
   // ── Menu idle animation ───────────────────────────────────────
   updateMenuAnimation(t) {
-    this.mesh.rotation.z = Math.sin(t * 2) * 0.1;
+    this.group.position.y = 3 + Math.sin(t * 1.5) * 0.3;
+    this.mesh.rotation.z = Math.sin(t * 2) * 0.08;
+    this.mesh.rotation.x = Math.sin(t * 1.3) * 0.03;
+    this.engineGlow.intensity = 0.4 + Math.sin(t * 3) * 0.2;
   }
 
   // ── In-flight animation ───────────────────────────────────────
   updateFlightAnimation(t, ctrl) {
     this.group.rotation.z = THREE.MathUtils.lerp(this.group.rotation.z, ctrl.targetBank,  0.1);
     this.group.rotation.x = THREE.MathUtils.lerp(this.group.rotation.x, ctrl.targetPitch, 0.1);
-    this.mesh.rotation.z  = Math.sin(t * 5) * 0.05; // subtle wing wobble
+    this.mesh.rotation.z  = Math.sin(t * 5) * 0.05;
+
+    // Engine glow pulse
+    this.engineGlow.intensity = 0.5 + Math.sin(t * 8) * 0.15;
+
+    // Trail afterimages
+    const baseOpacity = this.isGhost ? 0.18 : 0.08;
+    this.trail.forEach((tr, i) => {
+      const target = baseOpacity * (1 - i * 0.3);
+      tr.mesh.material.opacity = THREE.MathUtils.lerp(tr.mesh.material.opacity, target, 0.08);
+      tr.mesh.visible = tr.mesh.material.opacity > 0.005;
+      if (!tr.mesh.visible) return;
+      tr.mesh.rotation.x = this.mesh.rotation.x;
+      tr.mesh.rotation.z = this.mesh.rotation.z;
+      tr.mesh.scale.setScalar(1 - i * 0.12);
+    });
   }
 
   // ── Crash animation ───────────────────────────────────────────
   updateCrashAnimation(delta) {
     this._crashTimer += delta;
+
+    // Kill trail on crash
+    this.trail.forEach(t => { t.mesh.visible = false; t.mesh.material.opacity = 0; });
 
     // Crumple geometry
     if (this.crumpleFactor < 1) {
