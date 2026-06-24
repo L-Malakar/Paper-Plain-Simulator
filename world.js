@@ -50,7 +50,7 @@ export const SKIN_CONFIGS = {
   night: {
     label: 'NIGHT',
     desc:  'Deep space traverse',
-    price: 1000,
+    price: 800,
     img: 'https://yt3.ggpht.com/zAn-HG7qTNlHdvXCONin8aXkuoTlgtE_APljrNLP1yTiw4RDxBqOxKrCjwCPmbfK-kKGPEAjN_w=s640-c-fcrop64=1,38130000c7ecffff-rw-nd-v1',
     bg:        0x06090f,
     fogColor:  0x06090f,
@@ -68,6 +68,29 @@ export const SKIN_CONFIGS = {
     rimLight:   { color: 0x7c4dff, intensity: 0.35 },
     hemiLight:  { sky: 0x8eb8e0, ground: 0x0a1020, intensity: 0.45 },
   },
+  beach: {
+    label: 'BEACH SUNSET',
+    desc:  'Golden shores at dusk',
+    price: 1000,
+    img: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=640&q=80',
+    bg:        0x1a0a2e,
+    fogColor:  0xff6b35,
+    fogNear:   10,
+    fogFar:    48,
+    gridColor1: 0xf4a261,
+    gridColor2: 0xe76f51,
+    gridDiv:   18,
+    colors: [0xff6b35, 0xf4a261, 0xe9c46a, 0x2a9d8f, 0x264653, 0xff9f1c, 0xffbf69],
+    emissiveIntensity: 0.45,
+    spinMult:     0.6,
+    hasGround:    true,
+    hasSand:      true,
+    hasStars:     false,
+    hasClouds:    true,
+    baseDensity:  { mobile: 5, desktop: 9 },
+    rimLight:   { color: 0xff6b35, intensity: 0.6 },
+    hemiLight:  { sky: 0xffb347, ground: 0xc2956c, intensity: 0.7 },
+  },
 };
 
 export class WorldManager {
@@ -80,21 +103,45 @@ export class WorldManager {
     this.distance  = 0;
     this.skin      = SKIN_CONFIGS[skinId] || SKIN_CONFIGS.night;
 
-    // ── Ground plane (night only) ──────────────────────────────
+    // ── Ground plane ───────────────────────────────────────────
     if (this.skin.hasGround) {
       const groundGeo = new THREE.PlaneGeometry(400, 400);
-      const groundMat = new THREE.MeshStandardMaterial({
-        color: 0x060a10, roughness: 0.95, metalness: 0.05,
-      });
+      let groundMat;
+      if (this.skin.hasSand) {
+        // Beach: gradient from sand near camera to ocean blue far away
+        groundMat = new THREE.MeshStandardMaterial({
+          color: 0xc2956c, roughness: 0.9, metalness: 0.0,
+        });
+      } else {
+        groundMat = new THREE.MeshStandardMaterial({
+          color: 0x060a10, roughness: 0.95, metalness: 0.05,
+        });
+      }
       this.ground = new THREE.Mesh(groundGeo, groundMat);
       this.ground.rotation.x = -Math.PI / 2;
       this.ground.position.y = -0.05;
       this.scene.add(this.ground);
+
+      // Ocean plane (beach only) — sits just below sand, offset forward
+      if (this.skin.hasSand) {
+        const seaGeo = new THREE.PlaneGeometry(400, 200);
+        const seaMat = new THREE.MeshStandardMaterial({
+          color: 0x2a9d8f, roughness: 0.1, metalness: 0.4,
+          transparent: true, opacity: 0.82,
+        });
+        this.sea = new THREE.Mesh(seaGeo, seaMat);
+        this.sea.rotation.x = -Math.PI / 2;
+        this.sea.position.set(0, -0.04, -100);
+        this.scene.add(this.sea);
+      } else {
+        this.sea = null;
+      }
     } else {
       this.ground = null;
+      this.sea    = null;
     }
 
-    // ── Star field (night only) ────────────────────────────────
+    // ── Star field ─────────────────────────────────────────────
     if (this.skin.hasStars) {
       const starCount = this.isMobile ? 500 : 1500;
       const starPos   = new Float32Array(starCount * 3);
@@ -113,6 +160,42 @@ export class WorldManager {
       this.scene.add(this.stars);
     } else {
       this.stars = null;
+    }
+
+    // ── Cloud layer (beach only) ───────────────────────────────
+    if (this.skin.hasClouds) {
+      const cloudCount = this.isMobile ? 12 : 24;
+      this.clouds = [];
+      for (let i = 0; i < cloudCount; i++) {
+        const puffs = 3 + Math.floor(Math.random() * 3);
+        const cloudGroup = new THREE.Group();
+        for (let p = 0; p < puffs; p++) {
+          const r   = 0.8 + Math.random() * 1.2;
+          const geo = new THREE.SphereGeometry(r, 7, 5);
+          const mat = new THREE.MeshStandardMaterial({
+            color: 0xfff5e4, transparent: true,
+            opacity: 0.55 + Math.random() * 0.25,
+            roughness: 1, metalness: 0,
+          });
+          const puff = new THREE.Mesh(geo, mat);
+          puff.position.set(
+            (Math.random() - 0.5) * r * 2.5,
+            (Math.random() - 0.5) * r * 0.5,
+            (Math.random() - 0.5) * r
+          );
+          cloudGroup.add(puff);
+        }
+        cloudGroup.position.set(
+          (Math.random() - 0.5) * 80,
+          6 + Math.random() * 6,
+          -20 - Math.random() * 120
+        );
+        cloudGroup.userData.speed = 0.008 + Math.random() * 0.012;
+        this.scene.add(cloudGroup);
+        this.clouds.push(cloudGroup);
+      }
+    } else {
+      this.clouds = null;
     }
 
     // Seed initial chunks ahead of the camera
@@ -144,6 +227,22 @@ export class WorldManager {
       this.stars.material.dispose();
       this.scene.remove(this.stars);
       this.stars = null;
+    }
+    if (this.sea) {
+      this.sea.geometry.dispose();
+      this.sea.material.dispose();
+      this.scene.remove(this.sea);
+      this.sea = null;
+    }
+    if (this.clouds) {
+      this.clouds.forEach(cg => {
+        cg.children.forEach(p => {
+          if (p.geometry) p.geometry.dispose();
+          if (p.material) p.material.dispose();
+        });
+        this.scene.remove(cg);
+      });
+      this.clouds = null;
     }
   }
 
@@ -257,9 +356,24 @@ export class WorldManager {
       this.ground.position.z += speed;
       this.ground.position.x  = worldShiftX;
     }
+    if (this.sea) {
+      this.sea.position.z += speed;
+      this.sea.position.x  = worldShiftX;
+      // Gentle wave shimmer
+      this.sea.material.opacity = 0.78 + Math.sin(elapsed * 1.4) * 0.06;
+    }
     if (this.stars) {
       this.stars.position.z += speed * 0.12;
       this.stars.position.x  = worldShiftX * 0.3;
+    }
+    if (this.clouds) {
+      this.clouds.forEach(cg => {
+        cg.position.x -= cg.userData.speed * sm;
+        // Wrap clouds horizontally
+        if (cg.position.x < -50) cg.position.x = 50;
+        // Gentle bob
+        cg.position.y += Math.sin(elapsed * 0.4 + cg.userData.speed * 100) * 0.002;
+      });
     }
 
     this.chunks.forEach(chunk => {
@@ -304,7 +418,8 @@ export class WorldManager {
         const maxTier    = this._maxTier();
         const placements = this._generatePlacements(maxTier);
 
-        chunk.children.filter(c => c.userData.category).forEach(child => {
+        const toRemove = chunk.children.filter(c => c.userData.category);
+        toRemove.forEach(child => {
           const idx = this.obstacles.indexOf(child);
           if (idx !== -1) this.obstacles.splice(idx, 1);
           child.geometry.dispose();
