@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>PAPER PLANE · INFINITE PROTOCOL</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="banner.css">
 </head>
 <body>
 
@@ -16,7 +17,9 @@
 
 <!-- ═══ TOP-LEFT: MENU STATS ════════════════════════════════════ -->
 <div id="menu-stats">
-  <div class="stat-row stat-coins">⬡ <span id="menuCoinVal">0</span></div>
+  <div class="stat-row stat-coins">
+    ⬡ <span id="menuCoinVal">0</span>
+  </div>
   <div class="stat-row stat-best">BEST <span id="menuBestVal">0</span>m</div>
 </div>
 
@@ -69,7 +72,19 @@
   </div>
 </div>
 
+<!-- ═══ LEAVE-CONFIRM MODAL ═══════════════════════════════════════ -->
+<div id="leave-confirm-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:998;"></div>
+<div id="leave-confirm-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:999; background:#1a1a1a; border:1px solid #444; border-radius:10px; padding:24px; text-align:center; min-width:260px;">
+  <div style="font-size:18px; font-weight:700; margin-bottom:10px;">LEAVE RUN?</div>
+  <div style="font-size:13px; opacity:0.75; margin-bottom:18px;">Your current progress will not be saved.</div>
+  <div style="display:flex; gap:10px; justify-content:center;">
+    <button id="leave-confirm-yes">YES, LEAVE</button>
+    <button id="leave-confirm-no">CANCEL</button>
+  </div>
+</div>
+
 <!-- ═══ SETTINGS MODAL ══════════════════════════════════════════ -->
+<div id="settings-backdrop"></div>
 <div id="settings-modal">
   <span id="closeSettingsBtn" class="close-btn">&times;</span>
   <div class="modal-title">SETTINGS</div>
@@ -127,13 +142,6 @@
           <div class="ctrl-opt-desc">On-screen directional buttons</div>
         </div>
       </button>
-      <button class="ctrl-opt" data-mode="gyro">
-        <div class="ctrl-opt-dot"></div>
-        <div class="ctrl-opt-info">
-          <div class="ctrl-opt-name">GYROSCOPE</div>
-          <div class="ctrl-opt-desc">Tilt your device to steer</div>
-        </div>
-      </button>
     </div>
     <p style="font-family:var(--font-mono); font-size:0.62rem; color:var(--clr-muted); margin-top:14px; letter-spacing:1px;">
       Changes apply on next session start
@@ -144,6 +152,7 @@
 <!-- ═══ MAP SELECTOR ════════════════════════════════════════════ -->
 <div id="map-btn-wrap">
   <button id="mapBtn"><span>MAP</span><span class="key-badge">M</span></button>
+  <button id="eventBtn">🎉 <span>EVENT</span></button>
 </div>
 
 <div id="map-selector" style="display:none;">
@@ -209,7 +218,6 @@
     <div class="menu-actions">
       <button id="playBtn">
         <span id="playBtnText">PLAY</span>
-        <span class="key-badge">ENTER</span>
       </button>
     </div>
     <p id="controls-hint">[ W / A / S / D ] — NAVIGATE</p>
@@ -231,6 +239,7 @@ import {
   playClick, playCrash, playBeep, playCoin,
   getMusicMuted, getSFXMuted,
 } from './music-handler.js';
+import { initBanner, getEventPhase } from './banner.js';
 
 // ── Extra SFX: power-up pickup (synthesised inline) ─────────
 function playPowerUp() {
@@ -576,8 +585,11 @@ if (!isMobile) {
     if (k === Controller.binds.restart && gameState === 'GAMEOVER') {
       rebootBtn.click(); return;
     }
-    if (k === Controller.binds.home && (gameState === 'GAMEOVER' || gameState === 'PLAYING' || isPaused)) {
+    if (k === Controller.binds.home && gameState === 'GAMEOVER') {
       goHome(); return;
+    }
+    if (k === Controller.binds.home && (gameState === 'PLAYING' || isPaused)) {
+      openLeaveConfirm(); return;
     }
     if (k === Controller.binds.settings) {
       openSettings(); return;
@@ -590,6 +602,11 @@ if (!isMobile) {
   // Mobile: hide keybinds tab
   document.querySelector('[data-tab="keybinds"]').style.display = 'none';
   document.getElementById('controls-hint').textContent = 'TOUCH TO STEER';
+}
+
+if (!isMobile) {
+  // Desktop: hide mobile-controls tab, it has nothing relevant here
+  document.querySelector('[data-tab="mobile"]').style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -613,15 +630,21 @@ document.querySelectorAll('.ctrl-opt').forEach(btn => {
 // ═══════════════════════════════════════════════════════════════
 //  SETTINGS OPEN / CLOSE
 // ═══════════════════════════════════════════════════════════════
+const settingsBackdrop = document.getElementById('settings-backdrop');
+
 function openSettings() {
   playClick();
   settingsModal.style.display = 'block';
+  settingsBackdrop.style.display = 'block';
   if (!isMobile) renderKeybinds();
 }
 function closeSettings() {
   playClick();
   settingsModal.style.display = 'none';
+  settingsBackdrop.style.display = 'none';
 }
+
+bindTouchAndClick(settingsBackdrop, closeSettings);
 
 bindTouchAndClick(mainSettingsBtn,                         openSettings);
 bindTouchAndClick(document.getElementById('go-settings-btn'),   openSettings);
@@ -636,16 +659,32 @@ function updateMenuUI() {
   planeNameEl.textContent = def.name;
   player.setPlaneType(viewIndex);
 
+  // Remove any existing badge floating outside the button
+  const _existingBadge = document.getElementById('plane-sale-badge');
+  if (_existingBadge) _existingBadge.remove();
+
   if (ownedPlanes.includes(viewIndex)) {
-    playBtnText.textContent    = (viewIndex === currentPlane) ? 'PLAY' : 'SELECT';
-    playBtn.className          = '';
-    playBtn.style.borderColor  = '';
-    playBtn.style.color        = '';
+    playBtnText.textContent   = (viewIndex === currentPlane) ? 'PLAY' : 'SELECT';
+    playBtn.className         = '';
+    playBtn.style.borderColor = '';
+    playBtn.style.color       = '';
   } else {
-    playBtnText.textContent   = `⬡ BUY ${def.price}`;
+    const phase = getEventPhase();
+    const salePlanePrice = (phase === 'active')
+      ? Math.floor(def.price * 0.75)   // 25% OFF during event
+      : def.price;                       // normal price otherwise
+    playBtnText.textContent   = `⬡ BUY ${salePlanePrice}`;
     playBtn.className         = 'btn-gold';
     playBtn.style.borderColor = '';
     playBtn.style.color       = '';
+
+    // Inject badge as sibling, anchored to button's top-right corner
+    if (phase === 'active') {
+      const badge = document.createElement('div');
+      badge.id        = 'plane-sale-badge';
+      badge.className = 'btn-sale-tag';
+      playBtn.parentElement.appendChild(badge);
+    }
   }
 }
 updateMenuUI();
@@ -674,6 +713,7 @@ function togglePause(e) {
     ? 'https://cdn-icons-png.flaticon.com/512/724/724927.png'
     : 'https://cdn-icons-png.flaticon.com/512/151/151859.png';
   pauseScreen.style.display = isPaused ? 'flex' : 'none';
+  isPaused ? pauseScreen.classList.add('active') : pauseScreen.classList.remove('active');
 }
 
 pauseBtn.addEventListener('click',      togglePause);
@@ -727,11 +767,15 @@ playBtn.addEventListener('click', () => {
 
   // Buy
   if (!ownedPlanes.includes(viewIndex)) {
-    if (coins >= def.price) {
+    const _buyPhase = getEventPhase();
+    const _effectivePlanePrice = (_buyPhase === 'active')
+      ? Math.floor(def.price * 0.75)
+      : def.price;
+    if (coins >= _effectivePlanePrice) {
       playCoin();
       vibrate([30]);
       triggerShake(0.1, 0.05);
-      coins -= def.price;
+      coins -= _effectivePlanePrice;
       ownedPlanes.push(viewIndex);
       saveProgress();
       syncHUD();
@@ -811,7 +855,23 @@ function goHome() {
 }
 
 bindTouchAndClick(document.getElementById('go-home-btn'),    goHome);
-bindTouchAndClick(document.getElementById('pause-home-btn'), goHome);
+
+const leaveConfirmBackdrop = document.getElementById('leave-confirm-backdrop');
+const leaveConfirmModal    = document.getElementById('leave-confirm-modal');
+
+function openLeaveConfirm() {
+  leaveConfirmBackdrop.style.display = 'block';
+  leaveConfirmModal.style.display    = 'block';
+}
+function closeLeaveConfirm() {
+  leaveConfirmBackdrop.style.display = 'none';
+  leaveConfirmModal.style.display    = 'none';
+}
+
+bindTouchAndClick(document.getElementById('pause-home-btn'), openLeaveConfirm);
+bindTouchAndClick(document.getElementById('leave-confirm-yes'), () => { closeLeaveConfirm(); goHome(); });
+bindTouchAndClick(document.getElementById('leave-confirm-no'),  closeLeaveConfirm);
+bindTouchAndClick(leaveConfirmBackdrop, closeLeaveConfirm);
 
 // ═══════════════════════════════════════════════════════════════
 //  RETRY
@@ -832,7 +892,11 @@ rebootBtn.addEventListener('click', () => {
 
   rebuildWorld();
   clearPowerUpHUD();
-  player.group.position.set(0, 0, 0);
+  player.group.position.set(0, 3, 0);
+  player.group.rotation.set(0, 0, 0);
+  player.crumpleFactor = 0;
+  player.fallVelocity  = 0;
+  player._crashTimer   = 0;
   gameOverUI.style.display = 'none';
   hud.style.display        = 'block';
   pauseBtn.style.display   = 'none'; // hidden until countdown ends
@@ -924,7 +988,8 @@ function checkCoinCollisions() {
     _planeBox.max.y += magnetRadius * 0.5;
   }
 
-  const coinMult = collectables.hasPowerUp('COLLECTOR') ? 2 : 1;
+  const _eventCoinMult = getEventPhase() === 'active' ? 2 : 1;
+  const coinMult = (collectables.hasPowerUp('COLLECTOR') ? 2 : 1) * _eventCoinMult;
 
   for (const item of collectables.items) {
     if (!item.visible) continue;
@@ -1047,30 +1112,62 @@ const mapOpts     = document.getElementById('map-options');
 
 function renderMapSelector() {
   mapOpts.innerHTML = '';
+  const phase = getEventPhase(); // 'pre' | 'active' | 'post'
+
   Object.entries(SKIN_CONFIGS).forEach(([id, cfg]) => {
     const owned  = ownedMaps.includes(id);
     const active = currentMap === id;
 
+    // Beach map is locked with COMING SOON only during pre-event
+    const isComingSoon = id === 'beach' && phase === 'pre';
+
     const card = document.createElement('div');
-    card.className = 'map-card' + (active ? ' active' : '') + (!owned ? ' locked' : '');
+    card.className = 'map-card'
+      + (active      ? ' active' : '')
+      + (!owned && !isComingSoon ? ' locked' : '')
+      + (isComingSoon ? ' coming-soon-card' : '');
 
     let statusHTML = '';
-    if (active) {
+    if (isComingSoon) {
+      // Override everything — show COMING SOON badge, block interaction
+      statusHTML = '<span class="map-status map-status-coming-soon">🔒 COMING SOON · JUL 1</span>';
+    } else if (active) {
       statusHTML = '<span class="map-status map-status-active">✓ ACTIVE</span>';
     } else if (owned) {
       statusHTML = '<span class="map-status">TAP TO SELECT</span>';
     } else {
-      statusHTML = `<span class="map-status map-status-price">⬡ ${cfg.price}</span>`;
+      // Show sale price only during active event, normal price otherwise
+      if (phase === 'active' && cfg.price > 0) {
+        const salePrice = Math.floor(cfg.price * 0.5);
+        statusHTML = `
+          <div class="map-price-wrap">
+            <span class="map-status map-status-price map-price-old">⬡ ${cfg.price}</span>
+            <span class="map-status map-status-price map-price-new">⬡ ${salePrice}</span>
+          </div>`;
+      } else {
+        statusHTML = `<span class="map-status map-status-price">⬡ ${cfg.price}</span>`;
+      }
     }
 
+    // Sale ribbon only during active event
+    const saleRibbon = !owned && cfg.price > 0 && phase === 'active' && !isComingSoon
+      ? '<div class="sale-ribbon"></div>'
+      : '';
+
     card.innerHTML = `
-      <div class="map-card-img-wrap"><img class="map-card-img" src="${cfg.img}" alt="${cfg.label}" loading="lazy"></div>
+      <div class="map-card-img-wrap">
+        <img class="map-card-img" src="${cfg.img}" alt="${cfg.label}" loading="lazy">
+      </div>
+      ${saleRibbon}
       <div class="map-card-name">${cfg.label}</div>
       <div class="map-card-desc">${cfg.desc}</div>
       ${statusHTML}
     `;
 
-    card.addEventListener('click', () => selectMap(id));
+    card.addEventListener('click', () => {
+      if (isComingSoon) return; // block purchase before event starts
+      selectMap(id);
+    });
     mapOpts.appendChild(card);
   });
 }
@@ -1081,8 +1178,12 @@ function selectMap(mapId) {
   const cfg = SKIN_CONFIGS[mapId];
 
   if (!ownedMaps.includes(mapId)) {
-    if (coins >= cfg.price) {
-      coins -= cfg.price;
+    const phase = getEventPhase();
+    const effectivePrice = (phase === 'active' && cfg.price > 0)
+      ? Math.floor(cfg.price * 0.5)
+      : cfg.price;
+    if (coins >= effectivePrice) {
+      coins -= effectivePrice;
       ownedMaps.push(mapId);
       saveProgress();
       syncHUD();
@@ -1121,23 +1222,18 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// M key shortcut (desktop only)
-if (!isMobile) {
-  window.addEventListener('keydown', (e) => {
-    if (listeningAction) return;
-    if (settingsModal.style.display === 'block') return;
-    if (e.key.toLowerCase() === 'm' && gameState === 'MENU') {
-      mapBtn.click();
-    }
-  });
-}
-
 renderMapSelector();
 
 // ═══════════════════════════════════════════════════════════════
 //  🔧 DEV CHEAT — REMOVE BEFORE RELEASE
 // ═══════════════════════════════════════════════════════════════
 (() => {
+  const _devHost = window.location.hostname;
+  const _devPort = window.location.port;
+  const _isLocal = _devHost === 'localhost' || _devHost === '127.0.0.1';
+  const _isLiveServer = _isLocal && _devPort === '5500';
+  if (!_isLiveServer) return;
+
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyC' && e.ctrlKey && e.shiftKey && e.altKey) {
       e.stopPropagation();
@@ -1308,6 +1404,16 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+initBanner();
+
+// ── Event button — reopens the banner ─────────────────────────
+document.getElementById('eventBtn').addEventListener('click', () => {
+  // Remove the 'seen' flag so initBanner shows it again
+  sessionStorage.removeItem('paperPlane_banner_summersale2025');
+  // If banner already on screen don't add another
+  if (document.getElementById('event-banner-overlay')) return;
+  initBanner();
+});
 </script>
 </body>
 </html>
