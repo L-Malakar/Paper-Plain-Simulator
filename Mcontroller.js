@@ -81,8 +81,12 @@ export const MController = {
     const knob = document.getElementById('joystick-knob');
 
     const handleTouch = (e) => {
-      if (e.target.tagName === 'BUTTON') return;
+      // Bail out FIRST when controls are disabled (e.g. game-over / menu screens).
+      // This must run before any preventDefault() so taps on game-over UI
+      // (buttons, spans, badges) are never swallowed or hijacked by the joystick.
       if (!this.enabled) return;
+      if (e.target.closest && e.target.closest('button, [data-ui-block]')) return;
+      if (e.target.tagName === 'BUTTON') return;
       e.preventDefault();
       const touch = e.touches[0];
 
@@ -112,7 +116,7 @@ export const MController = {
     };
 
     window.addEventListener('touchstart', handleTouch, { passive: false });
-    window.addEventListener('touchmove',  (e) => { if (this.joystickActive) handleTouch(e); }, { passive: false });
+    window.addEventListener('touchmove',  (e) => { if (this.enabled && this.joystickActive) handleTouch(e); }, { passive: false });
     window.addEventListener('touchend',   () => {
       this.joystickActive = false;
       this.input.x = 0;
@@ -226,8 +230,27 @@ export const MController = {
     this.enabled = false;
     this.joystickActive = false;
     this.input = { x: 0, y: 0 };
-    document.getElementById('joystick-container').style.display = 'none';
-    document.getElementById('dpad-container').style.display     = 'none';
+
+    const joyContainer = document.getElementById('joystick-container');
+    const dpadContainer = document.getElementById('dpad-container');
+    const pad  = document.getElementById('joystick-pad');
+    const knob = document.getElementById('joystick-knob');
+
+    if (joyContainer)  joyContainer.style.display  = 'none';
+    if (dpadContainer) dpadContainer.style.display = 'none';
+
+    // Fully reset joystick visuals so nothing is left mid-drag when it's
+    // shown again (e.g. on restart) — otherwise the knob/pad can reappear
+    // already offset/opaque from the moment the game ended.
+    if (pad)  pad.style.opacity = '0.3';
+    if (knob) knob.style.transform = 'translate(0px, 0px)';
+
+    // Clear d-pad button "pressed" visuals too.
+    this._dpadState = { up: false, down: false, left: false, right: false };
+    ['dpad-up', 'dpad-down', 'dpad-left', 'dpad-right'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.classList.remove('pressed');
+    });
   },
 
   reset() {
@@ -260,7 +283,6 @@ export const MController = {
     if (playerGroup.position.y < floor) playerGroup.position.y = floor;
 
     const isCrashed = !this.isGhostMode && playerGroup.position.y <= this.config.minHeight;
-    if (isCrashed) this.disable();
 
     return {
       worldShiftX: nextX,
