@@ -82,15 +82,21 @@ body::after {
   background: var(--clr-bg);
   z-index: 9999;
   display: none;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 24px;
   color: var(--clr-accent);
   font-family: var(--font-display);
   font-size: clamp(0.75rem, 3vw, 1.1rem);
   letter-spacing: 3px;
   text-align: center;
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
+  #rotate-overlay {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 24px;
+  }
 }
 
 #rotate-overlay img {
@@ -103,10 +109,6 @@ body::after {
 @keyframes rotatePhone {
   0%, 100% { transform: rotate(-90deg); }
   50%       { transform: rotate(0deg);  }
-}
-
-@media (max-width: 900px) and (orientation: portrait) {
-  #rotate-overlay { display: flex; }
 }
 
 /* ─── CORNER DECORATION MIXIN ──────────────────────────────── */
@@ -535,7 +537,7 @@ button:hover .key-badge {
 }
 
 .menu-actions {
-  display: flex;
+  display: inline-flex;
   justify-content: center;
   align-items: center;
   gap: 16px;
@@ -616,14 +618,17 @@ button:hover .key-badge {
 #pause-screen {
   position: absolute; inset: 0;
   display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 36px;
   background: rgba(6,9,15,0.92);
   backdrop-filter: blur(20px) saturate(1.1);
   z-index: 24;
   pointer-events: auto;
+}
+#pause-screen.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
 }
 
 .pause-title {
@@ -650,10 +655,19 @@ button:hover .key-badge {
   align-items: center;
 }
 
+#settings-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 999;
+  pointer-events: auto;
+}
+
 /* ─── SETTINGS MODAL ────────────────────────────────────────── */
 #settings-modal {
   display: none;
-  position: absolute;
+  position: fixed;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   background: linear-gradient(160deg, rgba(13,17,23,0.97), rgba(6,9,15,0.99));
@@ -664,7 +678,8 @@ button:hover .key-badge {
   text-align: center;
   box-shadow: var(--shadow-float), 0 0 80px rgba(0,229,255,0.04);
   pointer-events: auto;
-  min-width: clamp(300px, 65vw, 440px);
+  width: clamp(300px, 65vw, 440px);
+  height: clamp(360px, 60vh, 520px);
   max-height: 85vh;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -1054,7 +1069,7 @@ input[type=range]::-moz-range-thumb {
 #diff-label {
   position: absolute;
   top: clamp(14px, 3vh, 28px);
-  right: 70px;
+  right: clamp(52px, 10vw, 80px);
   font-family: var(--font-mono);
   font-size: clamp(0.55rem, 1.6vw, 0.7rem);
   color: var(--clr-muted);
@@ -1106,7 +1121,7 @@ input[type=range]::-moz-range-thumb {
 
 /* ─── THREE.JS CANVAS (must sit below all UI) ─────────────── */
 canvas {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   z-index: 1;
@@ -1121,7 +1136,7 @@ canvas {
   .game-title, .crash-title { font-size: 2.2rem; letter-spacing: 4px; }
   .game-title::after, .crash-title::after { display: none; }
   .game-subtitle             { font-size: 0.65rem; letter-spacing: 4px; }
-  #menu { right: 50%; transform: translateX(50%); bottom: 10%; width: 92%; }
+  #menu { left: 50%; right: auto; transform: translateX(-50%); bottom: 10%; width: 92%; }
   .game-over-card { bottom: 10%; }
   button { padding: 9px 18px; font-size: 0.9rem; letter-spacing: 2px; }
   #countdown-text { font-size: 4.5rem; }
@@ -1131,8 +1146,7 @@ canvas {
   #hud-panel { padding: 10px 14px; }
   .pause-title { letter-spacing: 8px; }
   .pause-actions { gap: 12px; flex-wrap: wrap; justify-content: center; }
-  #settings-modal { padding: 24px 20px; min-width: 280px; }
-  #diff-label { right: 60px; }
+  #settings-modal { padding: 24px 20px; width: 280px; height: clamp(320px, 70vh, 460px); }
   .game-subtitle::before { left: -16px; right: -16px; }
 }
 
@@ -1261,6 +1275,27 @@ canvas {
    MAP SELECTOR
 ═══════════════════════════════════════════════════════════════ */
 
+#eventBtn {
+  background: linear-gradient(90deg, #ff6b00, #ff0080);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(255,107,0,0.45);
+  transition: transform 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+
+#eventBtn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 22px rgba(255,107,0,0.7);
+}
+
 #map-btn-wrap {
   position: fixed;
   bottom: clamp(16px, 3vh, 32px);
@@ -1299,7 +1334,7 @@ canvas {
 #map-selector::before {
   content: '';
   position: absolute;
-  bottom: 0; left: 15%; right: 15%;
+  top: 0; left: 15%; right: 15%;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(0,229,255,0.4), transparent);
 }
@@ -1328,6 +1363,8 @@ canvas {
   transition: all 0.25s ease;
   text-align: center;
   min-width: 100px;
+  position: relative;
+  overflow: visible;
 }
 
 .map-card:hover {
@@ -1339,6 +1376,17 @@ canvas {
   border-color: rgba(0,229,255,0.35);
   background: rgba(0,229,255,0.08);
   box-shadow: 0 0 16px rgba(0,229,255,0.06);
+}
+
+/* Beach Sunset map card theming */
+.map-card[data-skin="beach"].active {
+  border-color: rgba(244,162,97,0.45);
+  background: rgba(244,162,97,0.08);
+  box-shadow: 0 0 16px rgba(244,162,97,0.1);
+}
+.map-card[data-skin="beach"]:hover {
+  border-color: rgba(244,162,97,0.25);
+  background: rgba(244,162,97,0.05);
 }
 
 .map-card.locked {
@@ -1370,7 +1418,7 @@ canvas {
 
 .map-status {
   font-family: var(--font-mono);
-  font-size: clamp(0.52rem, 1.5vw, 0.62rem);
+  font-size: clamp(0.72rem, 2vw, 0.88rem);
   color: var(--clr-muted);
   letter-spacing: 1px;
 }
@@ -1381,6 +1429,8 @@ canvas {
 
 .map-status-price {
   color: var(--clr-gold);
+  font-size: clamp(0.82rem, 2.2vw, 1rem);
+  font-weight: 700;
 }
 
 .map-card-img-wrap {
@@ -1443,4 +1493,251 @@ canvas {
   #mapBtn .key-badge { display: none; }
   .map-options { gap: 6px; }
   .map-card { padding: 8px 6px; min-width: 70px; }
-  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SUMMER SALE UI
+═══════════════════════════════════════════════════════════════ */
+
+/* Top scrolling banner */
+#summer-sale-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 9996;
+  background: linear-gradient(90deg, #e76f51, #f4a261, #e9c46a, #f4a261, #e76f51);
+  background-size: 300% 100%;
+  animation: saleBannerScroll 4s linear infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 5px 0;
+  pointer-events: none;
+}
+
+@keyframes saleBannerScroll {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+.sale-banner-icon {
+  font-size: 0.9rem;
+}
+
+.sale-banner-text {
+  font-family: var(--font-display);
+  font-size: clamp(0.5rem, 1.8vw, 0.68rem);
+  font-weight: 700;
+  color: #1a0a00;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+/* Mini sale badge next to coin count */
+.sale-badge-mini {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(135deg, #e76f51, #f4a261);
+  color: #1a0a00;
+  font-family: var(--font-display);
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  margin-left: 8px;
+  animation: salePulse 2s ease-in-out infinite;
+  cursor: default;
+}
+
+@keyframes salePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244,162,97,0.4); }
+  50%       { box-shadow: 0 0 0 5px rgba(244,162,97,0); }
+}
+
+/* ── Starburst sale badge on map card ───────────────────────── */
+.sale-ribbon {
+  position: absolute;
+  top: -16px;
+  right: -16px;
+  z-index: 9000;
+  width: 58px;
+  height: 58px;
+  background: #e8192c;
+  clip-path: polygon(
+    50% 0%,   61% 15%,  79% 9%,   79% 27%,
+    97% 29%,  88% 44%,  100% 57%, 85% 65%,
+    91% 83%,  74% 85%,  72% 100%, 57% 93%,
+    50% 100%, 43% 93%,  28% 100%, 26% 85%,
+    9% 83%,   15% 65%,  0% 57%,   12% 44%,
+    3% 29%,   21% 27%,  21% 9%,   39% 15%
+  );
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.45));
+  animation: saleBadgePop 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+.sale-ribbon::before {
+  content: '50%';
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+  letter-spacing: -0.5px;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+}
+
+.sale-ribbon::after {
+  content: 'OFF';
+  font-family: var(--font-display);
+  font-size: 0.52rem;
+  font-weight: 900;
+  color: #ffdd00;
+  line-height: 1;
+  letter-spacing: 1px;
+  margin-top: 1px;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.2);
+}
+
+@keyframes saleBadgePop {
+  from { transform: scale(0) rotate(-30deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0deg);   opacity: 1; }
+}
+
+/* Map price: old struck-through + new red price */
+.map-price-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.map-price-old {
+  text-decoration: line-through;
+  opacity: 0.45;
+  color: var(--clr-muted) !important;
+}
+
+.map-price-new {
+  color: #f4a261 !important;
+  font-weight: 700;
+}
+
+/* ── Starburst sale badge on plane buy button ───────────────── */
+.menu-actions {
+  position: relative;
+}
+
+.btn-sale-tag {
+  position: absolute;
+  top: -18px;
+  right: -18px;
+  z-index: 9000;
+  width: 52px;
+  height: 52px;
+  background: #e8192c;
+  clip-path: polygon(
+    50% 0%,   61% 15%,  79% 9%,   79% 27%,
+    97% 29%,  88% 44%,  100% 57%, 85% 65%,
+    91% 83%,  74% 85%,  72% 100%, 57% 93%,
+    50% 100%, 43% 93%,  28% 100%, 26% 85%,
+    9% 83%,   15% 65%,  0% 57%,   12% 44%,
+    3% 29%,   21% 27%,  21% 9%,   39% 15%
+  );
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+  animation: saleBadgePop 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
+  pointer-events: none;
+}
+
+.btn-sale-tag::before {
+  content: '25%';
+  color: #fff;
+  font-size: 1em;
+  line-height: 1;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.25);
+}
+
+.btn-sale-tag::after {
+  content: 'OFF';
+  color: #ffdd00;
+  font-size: 0.75em;
+  letter-spacing: 1px;
+  line-height: 1;
+  margin-top: 1px;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.25);
+}
+
+@media (max-width: 480px) {
+  #summer-sale-banner { padding: 4px 0; }
+  .sale-banner-text   { font-size: 0.48rem; letter-spacing: 2px; }
+  .sale-ribbon        { font-size: 0.44rem; padding: 2px 10px; }
+}
+
+/* ─── BEACH SUNSET MAP SKIN ─────────────────────────────────── */
+body.skin-beach {
+  background: linear-gradient(180deg,
+    #1a0a2e 0%,
+    #6b2d4a 25%,
+    #c1440e 55%,
+    #e8820c 75%,
+    #f4c97a 100%
+  );
+}
+
+body.skin-beach::before {
+  /* Soften scanlines on bright backgrounds */
+  opacity: 0.4;
+}
+
+body.skin-beach::after {
+  /* Warmer vignette */
+  background: radial-gradient(ellipse 70% 60% at 50% 50%,
+    transparent 50%,
+    rgba(26,10,46,0.55) 100%
+  );
+}
+
+/* ── COMING SOON map card (pre-event) ───────────────────────── */
+.coming-soon-card {
+  opacity: 0.65;
+  cursor: not-allowed !important;
+  pointer-events: auto; /* keep it visible but click handler blocks it */
+}
+
+.coming-soon-card .map-card-img {
+  filter: grayscale(60%) brightness(0.7);
+}
+
+.map-status-coming-soon {
+  display: inline-block;
+  background: linear-gradient(90deg, #7c4dff, #00cfff);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-top: 4px;
+  box-shadow: 0 0 12px rgba(124, 77, 255, 0.5);
+  animation: comingSoonPulse 2s ease-in-out infinite;
+}
+
+@keyframes comingSoonPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(124,77,255,0.5); }
+  50%       { box-shadow: 0 0 22px rgba(0,207,255,0.7); }
+                         }
