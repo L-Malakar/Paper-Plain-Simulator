@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>PAPER PLANE · INFINITE PROTOCOL</title>
+  <meta http-equiv="Permissions-Policy" content="keyboard-map=*">
+  <meta name="referrer" content="no-referrer">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="banner.css">
 </head>
@@ -226,7 +228,7 @@
 
 <!-- ═══ SCRIPTS ══════════════════════════════════════════════════ -->
 <script type="module">
-import * as THREE from 'https://unpkg.com/three@0.136.0/build/three.module.js';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.136.0/build/three.module.js';
 import { Controller }         from './controller.js';
 import { MController }        from './Mcontroller.js';
 import { Player }             from './player.js';
@@ -285,7 +287,10 @@ function bindTouchAndClick(el, handler) {
   el.addEventListener('touchstart', wrapped, { passive: false, capture: true });
 }
 
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const isMobile = (
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+  navigator.maxTouchPoints > 1
+) && window.innerWidth <= 1024;
 const activeController = isMobile ? MController : Controller;
 
 // ═══════════════════════════════════════════════════════════════
