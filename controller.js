@@ -36,7 +36,7 @@ function saveBinds(binds) {
 
 export const Controller = {
   // ── Runtime state ─────────────────────────────────────────────
-  keys: { up: false, down: false, left: false, right: false },
+  keys: { up: false, down: false, left: false, right: false, pause: false, restart: false, home: false, settings: false },
   binds: loadBinds(),
 
   // ── Config ────────────────────────────────────────────────────
@@ -53,17 +53,27 @@ export const Controller = {
   isGhostMode: false,
 
   // ── Initialise keyboard listeners ────────────────────────────
+  _boundKeyDown: null,
+  _boundKeyUp: null,
+
   init() {
-    window.addEventListener('keydown', (e) => this._handleKey(e, true));
-    window.addEventListener('keyup',   (e) => this._handleKey(e, false));
+    if (this._boundKeyDown) return; // Guard: only register once
+    this._boundKeyDown = (e) => this._handleKey(e, true);
+    this._boundKeyUp   = (e) => this._handleKey(e, false);
+    window.addEventListener('keydown', this._boundKeyDown);
+    window.addEventListener('keyup',   this._boundKeyUp);
   },
 
   _handleKey(event, isPressed) {
     const k = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-    if (k === this.binds.up)    { this.keys.up    = isPressed; event.preventDefault(); }
-    if (k === this.binds.down)  { this.keys.down  = isPressed; event.preventDefault(); }
-    if (k === this.binds.left)  { this.keys.left  = isPressed; event.preventDefault(); }
-    if (k === this.binds.right) { this.keys.right = isPressed; event.preventDefault(); }
+    if (k === this.binds.up)       { this.keys.up      = isPressed; event.preventDefault(); }
+    if (k === this.binds.down)     { this.keys.down    = isPressed; event.preventDefault(); }
+    if (k === this.binds.left)     { this.keys.left    = isPressed; event.preventDefault(); }
+    if (k === this.binds.right)    { this.keys.right   = isPressed; event.preventDefault(); }
+    if (k === this.binds.pause)    { this.keys.pause   = isPressed; event.preventDefault(); }
+    if (k === this.binds.restart)  { this.keys.restart = isPressed; event.preventDefault(); }
+    if (k === this.binds.home)     { this.keys.home    = isPressed; event.preventDefault(); }
+    if (k === this.binds.settings) { this.keys.settings= isPressed; event.preventDefault(); }
   },
 
   // ── Rebind an action (called from Settings UI) ───────────────
