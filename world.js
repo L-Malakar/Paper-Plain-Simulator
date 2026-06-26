@@ -34,7 +34,7 @@ export const SKIN_CONFIGS = {
     bg:        0x030508,
     fogColor:  0x030508,
     fogNear:   6,
-    fogFar:    50,
+    fogFar:    60,
     gridColor1: 0x00ff88,
     gridColor2: 0x0a0f0a,
     gridDiv:   20,
@@ -55,7 +55,7 @@ export const SKIN_CONFIGS = {
     bg:        0x06090f,
     fogColor:  0x06090f,
     fogNear:   8,
-    fogFar:    55,
+    fogFar:    60,
     gridColor1: 0x0a2a3a,
     gridColor2: 0x080e16,
     gridDiv:   16,
@@ -64,6 +64,7 @@ export const SKIN_CONFIGS = {
     spinMult:     0.4,
     hasGround:    true,
     hasStars:     true,
+    hasClouds:    true,
     baseDensity:  { mobile: 5, desktop: 9 },
     rimLight:   { color: 0x7c4dff, intensity: 0.35 },
     hemiLight:  { sky: 0x8eb8e0, ground: 0x0a1020, intensity: 0.45 },
@@ -72,24 +73,24 @@ export const SKIN_CONFIGS = {
     label: 'BEACH SUNSET',
     desc:  'Golden shores at dusk',
     price: 1000,
-    img: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=640&q=80',
-    bg:        0x1a0a2e,
-    fogColor:  0xff6b35,
-    fogNear:   10,
-    fogFar:    48,
-    gridColor1: 0xf4a261,
-    gridColor2: 0xe76f51,
+    img: 'https://yt3.ggpht.com/VOJhGJOSZgjoAohXl08qRkRIthbu1_2qy8vJwJbypP9uHPQnHGVgpDRQkr2YN5_j_-iSadrN6qFwqRA=s640-c-fcrop64=1,3bb20000cb8bffff-rw-nd-v1',
+    bg:        0xff4500,
+    fogColor:  0xff4500,
+    fogNear:   8,
+    fogFar:    60,
+    gridColor1: 0xd4845a,
+    gridColor2: 0x1a0e08,
     gridDiv:   18,
-    colors: [0xff6b35, 0xf4a261, 0xe9c46a, 0x2a9d8f, 0x264653, 0xff9f1c, 0xffbf69],
-    emissiveIntensity: 0.45,
+    colors: [0xff6b35, 0xe9c46a, 0x2a9d8f, 0x48cae4, 0xffd166, 0xef233c, 0x06d6a0],
+    emissiveIntensity: 0.55,
     spinMult:     0.6,
-    hasGround:    true,
+    hasGround:    false,
     hasSand:      true,
     hasStars:     false,
-    hasClouds:    true,
+    hasClouds:    false,
     baseDensity:  { mobile: 5, desktop: 9 },
-    rimLight:   { color: 0xff6b35, intensity: 0.6 },
-    hemiLight:  { sky: 0xffb347, ground: 0xc2956c, intensity: 0.7 },
+    rimLight:   { color: 0xff9f68, intensity: 0.5 },
+    hemiLight:  { sky: 0xff7f50, ground: 0x1a0a00, intensity: 0.55 },
   },
 };
 
@@ -110,7 +111,8 @@ export class WorldManager {
       if (this.skin.hasSand) {
         // Beach: gradient from sand near camera to ocean blue far away
         groundMat = new THREE.MeshStandardMaterial({
-          color: 0xc2956c, roughness: 0.9, metalness: 0.0,
+          color: 0xb5724a, roughness: 0.85, metalness: 0.0,
+          emissive: 0x3d1a00, emissiveIntensity: 0.15,
         });
       } else {
         groundMat = new THREE.MeshStandardMaterial({
@@ -126,8 +128,9 @@ export class WorldManager {
       if (this.skin.hasSand) {
         const seaGeo = new THREE.PlaneGeometry(400, 200);
         const seaMat = new THREE.MeshStandardMaterial({
-          color: 0x2a9d8f, roughness: 0.1, metalness: 0.4,
-          transparent: true, opacity: 0.82,
+          color: 0x8b2500, roughness: 0.05, metalness: 0.6,
+          transparent: true, opacity: 0.88,
+          emissive: 0x4a1000, emissiveIntensity: 0.3,
         });
         this.sea = new THREE.Mesh(seaGeo, seaMat);
         this.sea.rotation.x = -Math.PI / 2;
@@ -202,6 +205,71 @@ export class WorldManager {
     for (let i = 0; i < 8; i++) {
       this.chunks.push(this._createChunk(-i * this.chunkSize));
     }
+
+    // ── Sun (Beach only) ──────────────────────────────────────
+    if (skinId === 'beach') {
+      this._buildSun();
+    } else {
+      this.sunGroup = null;
+    }
+  }
+
+  // ── Build 3D sun + rays ───────────────────────────────────────
+  _buildSun() {
+    this.sunGroup = new THREE.Group();
+    // Position: far ahead, high up, slightly right — stays fixed in world space
+    this.sunGroup.position.set(18, 22, -60);
+    this.scene.add(this.sunGroup);
+
+    // Sun core — bright white-yellow disc
+    const coreGeo = new THREE.SphereGeometry(2.2, 16, 16);
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0xfffbe6 });
+    this.sunCore  = new THREE.Mesh(coreGeo, coreMat);
+    this.sunGroup.add(this.sunCore);
+
+    // Inner glow halo
+    const halo1Geo = new THREE.SphereGeometry(3.8, 16, 16);
+    const halo1Mat = new THREE.MeshBasicMaterial({
+      color: 0xffcc44, transparent: true, opacity: 0.18,
+    });
+    this.sunGroup.add(new THREE.Mesh(halo1Geo, halo1Mat));
+
+    // Outer glow halo
+    const halo2Geo = new THREE.SphereGeometry(6.5, 16, 16);
+    const halo2Mat = new THREE.MeshBasicMaterial({
+      color: 0xff7700, transparent: true, opacity: 0.07,
+    });
+    this.sunGroup.add(new THREE.Mesh(halo2Geo, halo2Mat));
+
+    // Sun rays — thin flat boxes radiating outward
+    this._sunRayMeshes = [];
+    const rayCount = 12;
+    for (let i = 0; i < rayCount; i++) {
+      const angle  = (i / rayCount) * Math.PI * 2;
+      const length = 14 + Math.random() * 16;
+      const rayGeo = new THREE.PlaneGeometry(0.9 + Math.random() * 0.6, length);
+      const rayMat = new THREE.MeshBasicMaterial({
+        color: 0xffdd66, transparent: true,
+        opacity: 0.18 + Math.random() * 0.18,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const ray = new THREE.Mesh(rayGeo, rayMat);
+      // Offset ray outward from sun centre so it starts at the edge
+      ray.position.set(
+        Math.cos(angle) * (4 + length / 2),
+        Math.sin(angle) * (4 + length / 2),
+        0
+      );
+      ray.rotation.z = angle + Math.PI / 2;
+      this._sunRayMeshes.push(ray);
+      this.sunGroup.add(ray);
+    }
+
+    // Point light emanating from sun position
+    this.sunLight = new THREE.PointLight(0xff9933, 3.5, 300);
+    this.sunLight.position.copy(this.sunGroup.position);
+    this.scene.add(this.sunLight);
   }
 
   // ── Clean teardown ───────────────────────────────────────────
@@ -234,6 +302,17 @@ export class WorldManager {
       this.scene.remove(this.sea);
       this.sea = null;
     }
+    // Animate sun rays
+    if (this.sunGroup) {
+      const s = elapsed * 0.08;
+      this._sunRayMeshes.forEach((ray, i) => {
+        ray.material.opacity = 0.06 + Math.abs(Math.sin(s + i * 0.55)) * 0.09;
+      });
+      // Gentle pulse on core
+      const pulse = 1 + Math.sin(elapsed * 1.2) * 0.04;
+      this.sunCore.scale.setScalar(pulse);
+    }
+
     if (this.clouds) {
       this.clouds.forEach(cg => {
         cg.children.forEach(p => {
@@ -366,6 +445,19 @@ export class WorldManager {
       this.stars.position.z += speed * 0.12;
       this.stars.position.x  = worldShiftX * 0.3;
     }
+    if (this.sunGroup) {
+      this.sunGroup.children.forEach(c => {
+        if (c.geometry) c.geometry.dispose();
+        if (c.material) c.material.dispose();
+      });
+      this.scene.remove(this.sunGroup);
+      this.sunGroup = null;
+    }
+    if (this.sunLight) {
+      this.scene.remove(this.sunLight);
+      this.sunLight = null;
+    }
+
     if (this.clouds) {
       this.clouds.forEach(cg => {
         cg.position.x -= cg.userData.speed * sm;
