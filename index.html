@@ -11,6 +11,15 @@
 </head>
 <body>
 
+<!-- Sun ray overlay — only shows on Beach Sunset skin -->
+<div id="sun-rays">
+  <div class="sun-flare"></div>
+  <div class="sun-flare"></div>
+  <div class="sun-flare"></div>
+  <div class="sun-orb"></div>
+  <div class="sun-orb"></div>
+  <div class="sun-orb"></div>
+</div>
 <!-- ═══ ROTATE OVERLAY ═══════════════════════════════════════════ -->
 <div id="rotate-overlay">
   <img src="https://cdn-icons-png.flaticon.com/512/9515/9515279.png" alt="Rotate">
@@ -318,6 +327,9 @@ scene.add(dirLight);
 const rimLight = new THREE.DirectionalLight(0xffffff, 0.4);
 rimLight.position.set(-5, 2, -3);
 scene.add(rimLight);
+const fillLight = new THREE.DirectionalLight(0xffffff, 0.0);
+fillLight.position.set(0, 3, 5);
+scene.add(fillLight);
 
 // ═══════════════════════════════════════════════════════════════
 //  GAME STATE
@@ -353,6 +365,8 @@ let ownedMaps     = JSON.parse(localStorage.getItem('paperPlane_ownedMaps') || '
 // ── Apply map skin to scene-level properties ──────────────────
 function applyMapToScene() {
   const cfg = SKIN_CONFIGS[currentMap];
+  document.body.classList.remove('skin-classic', 'skin-night', 'skin-beach');
+  document.body.classList.add('skin-' + currentMap);
   scene.background = new THREE.Color(cfg.bg);
   scene.fog = new THREE.Fog(cfg.fogColor, cfg.fogNear, cfg.fogFar);
   rimLight.color.setHex(cfg.rimLight.color);
@@ -360,6 +374,15 @@ function applyMapToScene() {
   hemiLight.color.setHex(cfg.hemiLight.sky);
   hemiLight.groundColor.setHex(cfg.hemiLight.ground);
   hemiLight.intensity = cfg.hemiLight.intensity;
+  // Sun light: disabled on beach (no blazing directional sun), on for others
+  if (currentMap === 'beach') {
+    dirLight.intensity  = 0.0;
+    fillLight.color.setHex(0xff9060);
+    fillLight.intensity = 0.35;
+  } else {
+    dirLight.intensity  = 0.9;
+    fillLight.intensity = 0.0;
+  }
 }
 applyMapToScene();
 
@@ -1246,6 +1269,17 @@ renderMapSelector();
       saveProgress();
       syncHUD();
       showPickupToast('🔧 +5000 COINS', 0x00e5ff);
+    }
+
+    if (e.code === 'KeyM' && e.ctrlKey && e.shiftKey && e.altKey) {
+      e.stopPropagation();
+      if (!ownedMaps.includes('beach')) ownedMaps.push('beach');
+      currentMap = 'beach';
+      saveProgress();
+      applyMapToScene();
+      rebuildWorld();
+      renderMapSelector();
+      showPickupToast('🔧 BEACH SUNSET MAP', 0x00e5ff);
     }
   }, true);
 })();
